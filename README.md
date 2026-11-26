@@ -126,6 +126,7 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/calendar?start=&end=` | Releases in a date range |
 | GET | `/api/v1/wanted/missing` | Missing issues |
 | GET / POST / DELETE | `/api/v1/rootfolder` | Root folders |
+| GET | `/api/v1/filesystem?path=` | Browse server folders (used by the folder picker) |
 | GET | `/api/v1/parse?title=` | Show how a release name is parsed |
 | GET | `/api/v1/health` · `/api/v1/system/status` | Health checks, system info |
 

@@ -1,5 +1,6 @@
-import { Plus, Save, Zap } from 'lucide-react';
+import { Folder, Plus, Save, Trash2, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { FolderPicker } from '../components/FolderPicker';
 import { api, formatBytes, isConnected } from '../data/api';
 import { NavLink, useParams } from 'react-router-dom';
 import { Grow, Tool, Toolbar } from '../components/Toolbar';
@@ -41,9 +42,11 @@ function AddCard({ label }: { label: string }) {
   );
 }
 
+type RootFolderRow = { id: number; path: string; freeSpace?: number; accessible: boolean };
+
 function RootFolders() {
   const toast = useToast();
-  const [folders, setFolders] = useState<{ id: number; path: string; freeSpace?: number; accessible: boolean }[]>(
+  const [folders, setFolders] = useState<RootFolderRow[]>(
     isConnected()
       ? []
       : [
@@ -51,24 +54,42 @@ function RootFolders() {
           { id: 2, path: '/data/magazines', freeSpace: 612 * 1024 ** 3, accessible: true },
         ],
   );
+  const [picking, setPicking] = useState(false);
+  const [confirming, setConfirming] = useState<number | null>(null);
+
   const load = () => isConnected() && api.rootFolders().then(setFolders);
   useEffect(() => {
     load();
   }, []);
 
-  const add = async () => {
-    const path = window.prompt('Absolute path to the folder, e.g. /data/comics');
-    if (!path) return;
+  const add = async (path: string) => {
+    setPicking(false);
     if (!isConnected()) {
+      if (folders.some((f) => f.path === path)) {
+        toast(`${path} is already a root folder`, 'error');
+        return;
+      }
       setFolders((f) => [...f, { id: Date.now(), path, accessible: true }]);
+      toast('Root folder added');
       return;
     }
     try {
       await api.addRootFolder(path);
-      load();
+      await load();
       toast('Root folder added');
-    } catch {
-      toast('Could not add root folder. It must be an absolute path that isn’t already added.');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not add root folder', 'error');
+    }
+  };
+
+  const remove = async (f: RootFolderRow) => {
+    setConfirming(null);
+    try {
+      if (isConnected()) await api.deleteRootFolder(f.id);
+      setFolders((list) => list.filter((x) => x.id !== f.id));
+      toast(`Removed ${f.path}`);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Could not remove root folder', 'error');
     }
   };
 
@@ -76,18 +97,38 @@ function RootFolders() {
     <div>
       {folders.length === 0 && <div style={{ padding: '8px 0', color: 'var(--text-faint)' }}>No root folders yet.</div>}
       {folders.map((f) => (
-        <div className="mono" style={{ padding: '8px 0' }} key={f.id}>
-          {f.path}{' '}
+        <div className="root-folder" key={f.id}>
+          <Folder size={16} color="var(--accent)" />
+          <span className="path mono" title={f.path}>
+            {f.path}
+          </span>
           {f.accessible ? (
             <span className="pill ok">{f.freeSpace != null ? `${formatBytes(f.freeSpace)} free` : 'OK'}</span>
           ) : (
             <span className="pill danger">Not found</span>
           )}
+          {confirming === f.id ? (
+            <span className="confirm">
+              Remove?
+              <button className="btn sm danger" onClick={() => remove(f)}>
+                Remove
+              </button>
+              <button className="btn sm ghost" onClick={() => setConfirming(null)}>
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button className="icon-btn" title="Remove root folder" aria-label={`Remove ${f.path}`} onClick={() => setConfirming(f.id)}>
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       ))}
-      <button className="btn" style={{ marginTop: 6 }} onClick={add}>
+      <button className="btn" style={{ marginTop: 8 }} onClick={() => setPicking(true)}>
         <Plus size={16} /> Add Root Folder
       </button>
+      <div className="help">Removing a root folder doesn’t delete any files or titles.</div>
+      {picking && <FolderPicker initialPath="" onSelect={add} onClose={() => setPicking(false)} />}
     </div>
   );
 }

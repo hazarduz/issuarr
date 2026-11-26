@@ -1,22 +1,25 @@
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, CircleAlert } from 'lucide-react';
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 
-const ToastCtx = createContext<(msg: string) => void>(() => {});
+type Kind = 'success' | 'error';
+const ToastCtx = createContext<(msg: string, kind?: Kind) => void>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [msg, setMsg] = useState<string | null>(null);
+  const [kind, setKind] = useState<Kind>('success');
   const timer = useRef<number | undefined>(undefined);
-  const show = useCallback((m: string) => {
+  const show = useCallback((m: string, k: Kind = 'success') => {
     setMsg(m);
+    setKind(k);
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setMsg(null), 2600);
+    timer.current = window.setTimeout(() => setMsg(null), k === 'error' ? 5000 : 2600);
   }, []);
   return (
     <ToastCtx.Provider value={show}>
       {children}
       {msg && (
-        <div className="toast" role="status">
-          <CheckCircle2 size={18} color="var(--ok)" />
+        <div className={`toast ${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
+          {kind === 'error' ? <CircleAlert size={18} color="var(--danger)" /> : <CheckCircle2 size={18} color="var(--ok)" />}
           {msg}
         </div>
       )}

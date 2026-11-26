@@ -1327,3 +1327,153 @@ select.input {
     flex-wrap: wrap;
   }
 }
+
+/* ---------------------------------------------------------------
+   Modal + folder picker
+---------------------------------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 7, 10, 0.6);
+  backdrop-filter: blur(3px);
+  animation: fadein 0.15s ease-out;
+}
+@keyframes fadein {
+  from {
+    opacity: 0;
+  }
+}
+.modal {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  animation: slideup 0.18s ease-out;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 15px;
+}
+.modal-body {
+  padding: 16px 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+}
+.modal-foot .mono {
+  flex: 1;
+  min-width: 0;
+}
+.muted {
+  color: var(--text-muted);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+.folder-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  overflow-y: auto;
+  height: 320px;
+  max-height: 45vh;
+  padding: 4px;
+}
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+.folder-row svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.folder-row:hover {
+  background: var(--surface-hover);
+}
+div.folder-row {
+  cursor: default;
+}
+div.folder-row:hover {
+  background: transparent;
+}
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+.root-folder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin: 0 -10px;
+  border-radius: var(--radius-sm);
+  max-width: 540px;
+}
+.root-folder:hover {
+  background: var(--surface-2);
+}
+.root-folder .path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.root-folder .icon-btn {
+  width: 30px;
+  height: 30px;
+}
+.root-folder .icon-btn:hover {
+  color: var(--danger);
+}
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.btn.sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.btn.danger {
+  background: var(--danger);
+  border-color: transparent;
+  color: #fff;
+}
+.toast.error {
+  border-left-color: var(--danger);
+}

@@ -91,6 +91,12 @@ public class RootFolderController(IRootFolderService rootFolders) : ControllerBa
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
+        if (rootFolders.All().All(f => f.Folder.Id != id))
+        {
+            return NotFound();
+        }
+
+        // Titles keep their own paths, so removing a root folder never touches files or titles.
         rootFolders.Remove(id);
         return Ok();
     }

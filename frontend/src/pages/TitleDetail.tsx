@@ -38,7 +38,7 @@ export default function TitleDetail() {
     api.setIssuesMonitored(list.map((i) => i.serverId!).filter(Boolean), value).catch(() => {
       list.forEach((i) => (i.monitored = previous[i.id]));
       setMonitored((m) => ({ ...m, ...previous }));
-      toast('Could not save monitoring change');
+      toast('Could not save monitoring change', 'error');
     });
   };
 
@@ -52,7 +52,7 @@ export default function TitleDetail() {
       api.updateTitle(title).catch(() => {
         title.monitored = !value;
         setTitleMonitored(!value);
-        toast('Could not save monitoring change');
+        toast('Could not save monitoring change', 'error');
       });
     }
   };

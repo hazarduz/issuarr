@@ -103,12 +103,12 @@ export default function AddNew() {
                       try {
                         const folders = await api.rootFolders();
                         if (folders.length === 0) {
-                          toast('Add a root folder in Settings → Media Management first');
+                          toast('Add a root folder in Settings → Media Management first', 'error');
                           return;
                         }
                         await api.addTitle(t, folders[0].path);
                       } catch {
-                        toast(`Could not add ${t.name}`);
+                        toast(`Could not add ${t.name}`, 'error');
                         return;
                       }
                     }

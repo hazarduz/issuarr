@@ -47,6 +47,12 @@ interface ApiTitle {
   issues?: ApiIssue[];
 }
 
+export interface FileSystemListing {
+  path: string;
+  parent?: string;
+  directories: { name: string; path: string }[];
+}
+
 export interface HealthItem {
   source: string;
   type: 'notice' | 'warning' | 'error';
@@ -71,7 +77,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey, ...(options.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`${options.method ?? 'GET'} ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    // Surface the server's explanation (validation problems use "detail", others "message").
+    let message = `${options.method ?? 'GET'} ${path} failed: ${res.status}`;
+    try {
+      const body = await res.json();
+      message = body.detail ?? body.message ?? body.title ?? message;
+    } catch {
+      /* not JSON */
+    }
+    throw new Error(message);
+  }
   const text = await res.text();
   return (text ? JSON.parse(text) : undefined) as T;
 }
@@ -167,5 +183,7 @@ export const api = {
   health: () => request<HealthItem[]>('/health'),
   rootFolders: () => request<{ id: number; path: string; freeSpace?: number; accessible: boolean }[]>('/rootfolder'),
   addRootFolder: (path: string) => request('/rootfolder', { method: 'POST', body: JSON.stringify({ path }) }),
+  deleteRootFolder: (id: number) => request(`/rootfolder/${id}`, { method: 'DELETE' }),
+  browse: (path: string) => request<FileSystemListing>(`/filesystem?path=${encodeURIComponent(path)}`),
   status: () => request<Record<string, string | boolean>>('/system/status'),
 };
