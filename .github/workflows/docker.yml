@@ -3,7 +3,7 @@ name: Docker
 # Builds the Issuarr image and publishes it to GitHub Container Registry:
 #   ghcr.io/hazarduz/issuarr
 #
-# - Push to main        -> :latest  (+ :main, :sha-xxxxxxx)
+# - Push to the default branch -> :latest (+ :<branch>, :sha-xxxxxxx)
 # - Push a tag v1.2.3   -> :1.2.3, :1.2, :latest
 # - Any other branch    -> :<branch-name> (only when run manually)
 # - Pull requests       -> build only, nothing is published
@@ -12,7 +12,7 @@ name: Docker
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/**']
     tags: ['v*']
   pull_request:
   workflow_dispatch:
