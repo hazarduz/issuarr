@@ -53,6 +53,29 @@ export interface FileSystemListing {
   directories: { name: string; path: string }[];
 }
 
+export interface ImportCandidate {
+  path: string;
+  folderName: string;
+  name: string;
+  year?: number;
+  kind: Title['kind'];
+  fileCount: number;
+  matchedFileCount: number;
+  size: number;
+  existingTitleId?: number;
+  existingTitleName?: string;
+  sampleFiles: string[];
+}
+
+export interface ImportResult {
+  path: string;
+  titleId?: number;
+  slug?: string;
+  issuesImported: number;
+  unmatchedFiles: string[];
+  error?: string;
+}
+
 export interface HealthItem {
   source: string;
   type: 'notice' | 'warning' | 'error';
@@ -185,5 +208,16 @@ export const api = {
   addRootFolder: (path: string) => request('/rootfolder', { method: 'POST', body: JSON.stringify({ path }) }),
   deleteRootFolder: (id: number) => request(`/rootfolder/${id}`, { method: 'DELETE' }),
   browse: (path: string) => request<FileSystemListing>(`/filesystem?path=${encodeURIComponent(path)}`),
+  libraryScan: (path: string) => request<ImportCandidate[]>(`/libraryimport?path=${encodeURIComponent(path)}`),
+  libraryImport: (items: { path: string; name: string; year?: number; kind: Title['kind'] }[]) =>
+    request<ImportResult[]>('/libraryimport', { method: 'POST', body: JSON.stringify(items) }),
+  /** Fetch a title and add (or refresh) it in the in-memory library. */
+  loadTitle: async (id: number) => {
+    const t = toTitle(await request<ApiTitle>(`/title/${id}`));
+    const i = titles.findIndex((x) => x.id === t.id);
+    if (i >= 0) titles[i] = t;
+    else titles.push(t);
+    return t;
+  },
   status: () => request<Record<string, string | boolean>>('/system/status'),
 };

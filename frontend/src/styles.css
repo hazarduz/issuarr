@@ -1477,3 +1477,31 @@ div.folder-row:hover {
 .toast.error {
   border-left-color: var(--danger);
 }
+
+/* Library import */
+.input.sm {
+  height: 32px;
+  font-size: 13px;
+  padding: 0 8px;
+}
+.import-table input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.import-table td .input.sm:not([style]) {
+  min-width: 200px;
+}
+.dim-row td {
+  opacity: 0.6;
+}
+.import-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.pill a {
+  text-decoration: underline;
+}

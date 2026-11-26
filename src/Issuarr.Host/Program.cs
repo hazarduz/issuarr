@@ -4,6 +4,7 @@ using Issuarr.Core.Configuration;
 using Issuarr.Core.Datastore;
 using Issuarr.Core.Demo;
 using Issuarr.Core.Issues;
+using Issuarr.Core.LibraryImport;
 using Issuarr.Core.RootFolders;
 using Issuarr.Core.Titles;
 using Issuarr.Host.Api.V1;
@@ -41,6 +42,7 @@ public class Program
         builder.Services.AddSingleton<ITitleService, TitleService>();
         builder.Services.AddSingleton<IRootFolderService, RootFolderService>();
         builder.Services.AddSingleton<DemoDataSeeder>();
+        builder.Services.AddSingleton<ILibraryImportService, LibraryImportService>();
         builder.Services.AddSingleton<ResourceMapper>();
 
         builder.Services.AddControllers().AddJsonOptions(o =>

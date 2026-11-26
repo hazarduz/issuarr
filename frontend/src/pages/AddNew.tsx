@@ -1,4 +1,4 @@
-import { Check, FolderInput, Plus, Search } from 'lucide-react';
+import { Check, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Cover } from '../components/Cover';
@@ -34,7 +34,6 @@ const catalog: Title[] = [
 
 export default function AddNew() {
   const params = new URLSearchParams(useLocation().search);
-  const importMode = useLocation().pathname === '/import';
   const [q, setQ] = useState(params.get('term') ?? '');
   const [added, setAdded] = useState<Set<string>>(new Set());
   const toast = useToast();
@@ -43,27 +42,6 @@ export default function AddNew() {
     const s = q.trim().toLowerCase();
     return s ? catalog.filter((c) => c.name.toLowerCase().includes(s) || c.publisher.toLowerCase().includes(s)) : catalog;
   }, [q]);
-
-  if (importMode) {
-    return (
-      <div className="page">
-        <h1 className="page-title">Library Import</h1>
-        <div className="card empty">
-          <div>
-            <FolderInput size={40} />
-            <div style={{ fontWeight: 600, color: 'var(--text)' }}>Import an existing collection</div>
-            <p style={{ maxWidth: 460 }}>
-              Point Issuarr at a folder of CBZ, CBR or PDF files and it will match each folder to a title and each file to an
-              issue.
-            </p>
-            <button className="btn primary">
-              <FolderInput size={16} /> Choose Folder
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="page">

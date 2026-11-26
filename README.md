@@ -28,10 +28,11 @@ Early days. What works today:
 - ✅ Backend with SQLite database, REST API (`/api/v1`) and API-key auth
 - ✅ `config.xml` + app-data folder, same as Sonarr/Radarr
 - ✅ Release-name parser for comics and magazines (`#46`, `037`, `November 2026`, `2026-W48`, `Q3 2026`…)
-- ✅ Root folders, monitoring, health checks
+- ✅ Root folders (with folder browser), monitoring, health checks
+- ✅ Library import: scan an existing collection and add it, one title per folder
 - ✅ Docker image
 
-Not yet: metadata lookup (ComicVine/Metron), indexers/Prowlarr, download clients, importing files. See [ROADMAP.md](ROADMAP.md).
+Not yet: metadata lookup (ComicVine/Metron), indexers/Prowlarr, download clients, importing downloads. See [ROADMAP.md](ROADMAP.md).
 
 ## Quick start (Docker)
 
@@ -126,6 +127,7 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/calendar?start=&end=` | Releases in a date range |
 | GET | `/api/v1/wanted/missing` | Missing issues |
 | GET / POST / DELETE | `/api/v1/rootfolder` | Root folders |
+| GET / POST | `/api/v1/libraryimport?path=` | Scan a folder for titles / import them |
 | GET | `/api/v1/filesystem?path=` | Browse server folders (used by the folder picker) |
 | GET | `/api/v1/parse?title=` | Show how a release name is parsed |
 | GET | `/api/v1/health` · `/api/v1/system/status` | Health checks, system info |

@@ -8,6 +8,7 @@ import Activity from './pages/Activity';
 import AddNew from './pages/AddNew';
 import Calendar from './pages/Calendar';
 import Library from './pages/Library';
+import LibraryImport from './pages/LibraryImport';
 import Settings from './pages/Settings';
 import System from './pages/System';
 import TitleDetail from './pages/TitleDetail';
@@ -30,7 +31,7 @@ createRoot(document.getElementById('root')!).render(
           <Route element={<Layout />}>
             <Route index element={<Library />} />
             <Route path="add" element={<AddNew />} />
-            <Route path="import" element={<AddNew />} />
+            <Route path="import" element={<LibraryImport />} />
             <Route path="title/:slug" element={<TitleDetail />} />
             <Route path="calendar" element={<Calendar />} />
             <Route path="activity/*" element={<Activity />} />

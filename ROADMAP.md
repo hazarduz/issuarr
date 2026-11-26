@@ -29,7 +29,7 @@ Rough order. Each step should leave the app usable.
 - [ ] Completed download handling: rename + move/hardlink into the library
 - [ ] Naming formats from Settings → Media Management
 - [ ] Write ComicInfo.xml into CBZ files
-- [ ] Library import for existing collections
+- [x] Library import for existing collections
 - [ ] Disk scan to pick up files added outside Issuarr
 
 ## 6. Connect & polish
