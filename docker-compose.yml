@@ -1,6 +1,6 @@
 services:
   issuarr:
-    build: .
+    image: ghcr.io/hazarduz/issuarr:latest
     container_name: issuarr
     environment:
       - TZ=Etc/UTC

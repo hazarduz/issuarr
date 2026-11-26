@@ -29,6 +29,3 @@ jobs:
 
       - name: Test backend
         run: dotnet test src/Issuarr.slnx -c Release
-
-      - name: Build Docker image
-        run: docker build -t issuarr:ci .

@@ -35,17 +35,26 @@ Not yet: metadata lookup (ComicVine/Metron), indexers/Prowlarr, download clients
 
 ## Quick start (Docker)
 
+Images are published to GitHub Container Registry for `amd64` and `arm64` (most NAS boxes and Raspberry Pi):
+
+```
+ghcr.io/hazarduz/issuarr:latest
+```
+
 ```yaml
 services:
   issuarr:
-    build: .
+    image: ghcr.io/hazarduz/issuarr:latest
+    container_name: issuarr
     environment:
+      - TZ=Etc/UTC
       - ISSUARR_DEMO=true   # start with a sample library to explore
     volumes:
       - ./config:/config
       - /path/to/data:/data
     ports:
       - 8788:8788
+    restart: unless-stopped
 ```
 
 ```bash
@@ -53,6 +62,17 @@ docker compose up -d
 ```
 
 Open http://localhost:8788. Settings and the database live in `/config` (`config.xml`, `issuarr.db`).
+
+### Image tags
+
+| Tag | What it is |
+| --- | --- |
+| `latest` | Latest build from `main` (or newest release) |
+| `1.2.3`, `1.2` | Releases, created by pushing a `v1.2.3` git tag |
+| `<branch>` | Manual builds of a branch (Actions → Docker → Run workflow) |
+| `sha-abc1234` | A specific commit |
+
+To build the image yourself instead, replace `image:` with `build: .` in the compose file.
 
 ## Development
 
