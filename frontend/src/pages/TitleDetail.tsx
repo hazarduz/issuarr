@@ -19,6 +19,7 @@ import { Cover } from '../components/Cover';
 import { MonitorToggle, ProgressBar, StatusPill } from '../components/Status';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
 import { useToast } from '../components/Toast';
+import { api, isConnected } from '../data/api';
 import { kindLabel, parseDate, stats, titles, type Issue } from '../data/mock';
 
 export default function TitleDetail() {
@@ -27,6 +28,34 @@ export default function TitleDetail() {
   const toast = useToast();
   const [monitored, setMonitored] = useState<Record<string, boolean>>({});
   const [titleMonitored, setTitleMonitored] = useState(title?.monitored ?? true);
+
+  // Optimistically update the UI, then persist to the backend (when connected).
+  const setIssuesMonitored = (list: Issue[], value: boolean) => {
+    const previous = Object.fromEntries(list.map((i) => [i.id, i.monitored]));
+    list.forEach((i) => (i.monitored = value));
+    setMonitored((m) => ({ ...m, ...Object.fromEntries(list.map((i) => [i.id, value])) }));
+    if (!isConnected()) return;
+    api.setIssuesMonitored(list.map((i) => i.serverId!).filter(Boolean), value).catch(() => {
+      list.forEach((i) => (i.monitored = previous[i.id]));
+      setMonitored((m) => ({ ...m, ...previous }));
+      toast('Could not save monitoring change');
+    });
+  };
+
+  const toggleTitleMonitored = () => {
+    if (!title) return;
+    const value = !titleMonitored;
+    title.monitored = value;
+    setTitleMonitored(value);
+    toast(value ? 'Title monitored' : 'Title unmonitored');
+    if (isConnected()) {
+      api.updateTitle(title).catch(() => {
+        title.monitored = !value;
+        setTitleMonitored(!value);
+        toast('Could not save monitoring change');
+      });
+    }
+  };
 
   const byYear = useMemo(() => {
     const g = new Map<string, Issue[]>();
@@ -78,13 +107,7 @@ export default function TitleDetail() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1>
-              <MonitorToggle
-                on={titleMonitored}
-                onClick={() => {
-                  setTitleMonitored((m) => !m);
-                  toast(titleMonitored ? 'Title unmonitored' : 'Title monitored');
-                }}
-              />
+              <MonitorToggle on={titleMonitored} onClick={toggleTitleMonitored} />
               {title.name}
             </h1>
             <div className="facts">
@@ -146,7 +169,9 @@ export default function TitleDetail() {
           return (
             <div className="card year-block" key={year}>
               <div className="year-head" onClick={() => setOpen((o) => ({ ...o, [year]: !o[year] }))}>
-                <MonitorToggle on={issues.some(isMon)} />
+                <span onClick={(e) => e.stopPropagation()}>
+                  <MonitorToggle on={issues.some(isMon)} onClick={() => setIssuesMonitored(issues, !issues.some(isMon))} />
+                </span>
                 <h3>{year}</h3>
                 <span className={`pill ${have === aired && aired > 0 ? 'ok' : have === 0 ? '' : 'danger'}`}>
                   {have} / {aired}
@@ -174,7 +199,7 @@ export default function TitleDetail() {
                           <td>
                             <MonitorToggle
                               on={isMon(i)}
-                              onClick={() => setMonitored((m) => ({ ...m, [i.id]: !isMon(i) }))}
+                              onClick={() => setIssuesMonitored([i], !isMon(i))}
                             />
                           </td>
                           <td>

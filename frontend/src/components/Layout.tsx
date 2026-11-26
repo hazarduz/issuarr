@@ -15,10 +15,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { queue, titles, kindLabel, stats } from '../data/mock';
 import { Cover } from './Cover';
+import { isConnected, serverInfo } from '../data/api';
 
-const missingCount = titles.reduce((n, t) => n + (t.monitored ? stats(t).missing : 0), 0);
 
-const nav = [
+const buildNav = (missingCount: number) => [
   {
     to: '/',
     label: 'Library',
@@ -177,6 +177,7 @@ export function Layout() {
   const [theme, toggleTheme] = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const nav = buildNav(titles.reduce((n, t) => n + (t.monitored ? stats(t).missing : 0), 0));
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
@@ -195,6 +196,11 @@ export function Layout() {
         </button>
         <GlobalSearch />
         <span className="header-spacer" />
+        {!isConnected() && (
+          <span className="pill warn" title="The Issuarr backend isn't reachable, so the UI is showing sample data.">
+            Demo data
+          </span>
+        )}
         <button className="icon-btn" aria-label="Health">
           <Bell size={19} />
           <span className="dot" />
@@ -231,14 +237,14 @@ export function Layout() {
         })}
 
         <div className="sidebar-footer">
-          <div style={{ fontWeight: 600, color: 'var(--text)' }}>Issuarr v0.1.0</div>
+          <div style={{ fontWeight: 600, color: 'var(--text)' }}>Issuarr v{serverInfo()?.version ?? '0.1.0'}</div>
           <div className="row">
             <span>Library</span>
             <span>{titles.length} titles</span>
           </div>
           <div className="row">
-            <span>Disk</span>
-            <span>1.2 TB free</span>
+            <span>Mode</span>
+            <span>{isConnected() ? 'Live' : 'Demo'}</span>
           </div>
         </div>
       </nav>

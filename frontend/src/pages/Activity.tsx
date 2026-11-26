@@ -27,6 +27,18 @@ function Queue() {
     warning: { cls: 'warn', label: 'Stalled', icon: TriangleAlert },
   } as const;
 
+  if (items.length === 0) {
+    return (
+      <div className="card empty">
+        <div>
+          <Download size={40} />
+          <div style={{ fontWeight: 600, color: 'var(--text)' }}>Queue is empty</div>
+          <div>Issues being downloaded by your download clients will appear here.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card table-wrap">
       <table className="table">
@@ -96,6 +108,18 @@ function HistoryTable() {
     failed: { cls: 'danger', label: 'Download Failed' },
     deleted: { cls: '', label: 'File Deleted' },
   } as const;
+  if (history.length === 0) {
+    return (
+      <div className="card empty">
+        <div>
+          <CheckCircle2 size={40} />
+          <div style={{ fontWeight: 600, color: 'var(--text)' }}>No history yet</div>
+          <div>Grabs, imports and failures will be recorded here.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="card table-wrap">
       <table className="table">
@@ -148,7 +172,11 @@ export default function Activity() {
       <div className="page">
         <h1 className="page-title">
           {tab === 'queue' ? 'Queue' : tab === 'history' ? 'History' : 'Blocklist'}
-          {tab === 'queue' && <small>{queue.length} items · 2 downloading</small>}
+          {tab === 'queue' && (
+            <small>
+              {queue.length} items · {queue.filter((q) => q.state === 'downloading').length} downloading
+            </small>
+          )}
         </h1>
         {tab === 'queue' && <Queue />}
         {tab === 'history' && <HistoryTable />}

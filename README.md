@@ -22,22 +22,50 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 
 ## Status
 
-Early days. The repository currently contains the **web UI** (`frontend/`), running on mock data. The backend (metadata, indexers, download clients, import) comes next.
+Early days. What works today:
 
-## UI
+- ✅ Web UI (library, title pages, calendar, activity, wanted, settings, system)
+- ✅ Backend with SQLite database, REST API (`/api/v1`) and API-key auth
+- ✅ `config.xml` + app-data folder, same as Sonarr/Radarr
+- ✅ Release-name parser for comics and magazines (`#46`, `037`, `November 2026`, `2026-W48`, `Q3 2026`…)
+- ✅ Root folders, monitoring, health checks
+- ✅ Docker image
 
-A modern, dark-first interface in the *arr family style:
+Not yet: metadata lookup (ComicVine/Metron), indexers/Prowlarr, download clients, importing files. See [ROADMAP.md](ROADMAP.md).
 
-- **Library** – poster grid (with a size slider), overview list and table views; filter comics/magazines; sort by title, missing, next issue
-- **Title detail** – blurred cover backdrop, metadata cards, collection progress, issues grouped by year with per-issue monitoring and search
-- **Calendar** – month view of releases, colour coded by status
-- **Activity** – live download queue, history, blocklist
-- **Wanted** – missing issues and cutoff unmet
-- **Settings** – media management (naming tokens, ComicInfo.xml, hardlinks), profiles, indexers, download clients, connections, general
-- **System** – stats and health checks
-- Global search (press <kbd>/</kbd>), light/dark theme toggle, responsive down to phone width
+## Quick start (Docker)
 
-### Run it
+```yaml
+services:
+  issuarr:
+    build: .
+    environment:
+      - ISSUARR_DEMO=true   # start with a sample library to explore
+    volumes:
+      - ./config:/config
+      - /path/to/data:/data
+    ports:
+      - 8788:8788
+```
+
+```bash
+docker compose up -d
+```
+
+Open http://localhost:8788. Settings and the database live in `/config` (`config.xml`, `issuarr.db`).
+
+## Development
+
+You need [.NET 10 SDK](https://dotnet.microsoft.com/download) and Node 22.
+
+Run the backend (with a sample library, data stored in `./_data`):
+
+```bash
+cd src/Issuarr.Host
+dotnet run
+```
+
+In another terminal, run the UI with hot reload. It forwards API calls to the backend:
 
 ```bash
 cd frontend
@@ -45,11 +73,43 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:8788.
+Open http://localhost:5173. If the backend isn't running, the UI falls back to built-in sample data and shows a **Demo data** badge.
+
+Run the tests:
+
+```bash
+dotnet test src/Issuarr.slnx
+```
+
+## Project layout
+
+```
+frontend/              React + TypeScript + Vite web UI
+src/Issuarr.Core/      Domain, database (SQLite + Dapper + FluentMigrator), parser, services
+src/Issuarr.Host/      ASP.NET Core host: REST API, auth, serves the UI
+src/Issuarr.Core.Test/ NUnit tests
+```
+
+Same building blocks as Sonarr and Radarr: C#/.NET, SQLite, Dapper, FluentMigrator, NUnit, a React UI, `config.xml`, and an `X-Api-Key` REST API.
+
+## API
+
+All endpoints need the API key (from `config.xml`, or **Settings → General**) as an `X-Api-Key` header or `?apikey=` parameter.
+
+| Method | Endpoint | |
+| --- | --- | --- |
+| GET | `/api/v1/title?includeIssues=true` | All titles with statistics |
+| GET | `/api/v1/title/{id}` · `/api/v1/title/slug/{slug}` | One title with issues |
+| POST / PUT / DELETE | `/api/v1/title` | Add, edit, remove titles |
+| GET | `/api/v1/issue?titleId=` | Issues for a title |
+| PUT | `/api/v1/issue/monitor` | `{ "issueIds": [1,2], "monitored": false }` |
+| GET | `/api/v1/calendar?start=&end=` | Releases in a date range |
+| GET | `/api/v1/wanted/missing` | Missing issues |
+| GET / POST / DELETE | `/api/v1/rootfolder` | Root folders |
+| GET | `/api/v1/parse?title=` | Show how a release name is parsed |
+| GET | `/api/v1/health` · `/api/v1/system/status` | Health checks, system info |
 
 ## Tech
 
-- React 19 + TypeScript + Vite
-- React Router
-- Lucide icons
-- Plain CSS with design tokens (`frontend/src/styles.css`) – no UI framework
+- **Backend:** C# / .NET 10, ASP.NET Core, SQLite, Dapper, FluentMigrator, NUnit
+- **UI:** React 19, TypeScript, Vite, React Router, Lucide icons, plain CSS with design tokens (`frontend/src/styles.css`)

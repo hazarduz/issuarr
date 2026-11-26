@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Issuarr": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "commandLineArgs": "--data=../../_data",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ISSUARR_DEMO": "true"
+      }
+    }
+  }
+}

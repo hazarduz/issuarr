@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ToastProvider } from './components/Toast';
+import { bootstrap } from './data/api';
 import Activity from './pages/Activity';
 import AddNew from './pages/AddNew';
 import Calendar from './pages/Calendar';
@@ -18,6 +19,8 @@ try {
 } catch {
   document.documentElement.dataset.theme = 'dark';
 }
+
+await bootstrap();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

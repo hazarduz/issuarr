@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Cover } from '../components/Cover';
 import { useToast } from '../components/Toast';
+import { api, isConnected } from '../data/api';
 import type { Title } from '../data/mock';
 
 // A handful of fake metadata lookups so the add flow can be demoed.
@@ -97,9 +98,22 @@ export default function AddNew() {
                 <button
                   className={`btn ${isAdded ? '' : 'primary'}`}
                   disabled={isAdded}
-                  onClick={() => {
+                  onClick={async () => {
+                    if (isConnected()) {
+                      try {
+                        const folders = await api.rootFolders();
+                        if (folders.length === 0) {
+                          toast('Add a root folder in Settings → Media Management first');
+                          return;
+                        }
+                        await api.addTitle(t, folders[0].path);
+                      } catch {
+                        toast(`Could not add ${t.name}`);
+                        return;
+                      }
+                    }
                     setAdded((s) => new Set(s).add(t.id));
-                    toast(`${t.name} added — searching for issues`);
+                    toast(`${t.name} added to your library`);
                   }}
                 >
                   {isAdded ? <Check size={16} /> : <Plus size={16} />}

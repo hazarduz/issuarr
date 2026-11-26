@@ -1,5 +1,6 @@
 import { Plus, Save, Zap } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api, formatBytes, isConnected } from '../data/api';
 import { NavLink, useParams } from 'react-router-dom';
 import { Grow, Tool, Toolbar } from '../components/Toolbar';
 import { useToast } from '../components/Toast';
@@ -36,6 +37,57 @@ function AddCard({ label }: { label: string }) {
   return (
     <div className="card provider add">
       <Plus size={18} /> {label}
+    </div>
+  );
+}
+
+function RootFolders() {
+  const toast = useToast();
+  const [folders, setFolders] = useState<{ id: number; path: string; freeSpace?: number; accessible: boolean }[]>(
+    isConnected()
+      ? []
+      : [
+          { id: 1, path: '/data/comics', freeSpace: 612 * 1024 ** 3, accessible: true },
+          { id: 2, path: '/data/magazines', freeSpace: 612 * 1024 ** 3, accessible: true },
+        ],
+  );
+  const load = () => isConnected() && api.rootFolders().then(setFolders);
+  useEffect(() => {
+    load();
+  }, []);
+
+  const add = async () => {
+    const path = window.prompt('Absolute path to the folder, e.g. /data/comics');
+    if (!path) return;
+    if (!isConnected()) {
+      setFolders((f) => [...f, { id: Date.now(), path, accessible: true }]);
+      return;
+    }
+    try {
+      await api.addRootFolder(path);
+      load();
+      toast('Root folder added');
+    } catch {
+      toast('Could not add root folder. It must be an absolute path that isn’t already added.');
+    }
+  };
+
+  return (
+    <div>
+      {folders.length === 0 && <div style={{ padding: '8px 0', color: 'var(--text-faint)' }}>No root folders yet.</div>}
+      {folders.map((f) => (
+        <div className="mono" style={{ padding: '8px 0' }} key={f.id}>
+          {f.path}{' '}
+          {f.accessible ? (
+            <span className="pill ok">{f.freeSpace != null ? `${formatBytes(f.freeSpace)} free` : 'OK'}</span>
+          ) : (
+            <span className="pill danger">Not found</span>
+          )}
+        </div>
+      ))}
+      <button className="btn" style={{ marginTop: 6 }} onClick={add}>
+        <Plus size={16} /> Add Root Folder
+      </button>
     </div>
   );
 }
@@ -84,17 +136,7 @@ function Media() {
       </div>
       <div className="form-row">
         <label>Root Folders</label>
-        <div>
-          <div className="mono" style={{ padding: '8px 0' }}>
-            /data/comics <span className="pill ok">612 GB free</span>
-          </div>
-          <div className="mono" style={{ padding: '8px 0' }}>
-            /data/magazines <span className="pill ok">612 GB free</span>
-          </div>
-          <button className="btn" style={{ marginTop: 6 }}>
-            <Plus size={16} /> Add Root Folder
-          </button>
-        </div>
+        <RootFolders />
       </div>
       <div className="form-row">
         <label>Embed ComicInfo.xml</label>

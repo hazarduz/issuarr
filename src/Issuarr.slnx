@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Issuarr.Core.Test/Issuarr.Core.Test.csproj" />
+  <Project Path="Issuarr.Core/Issuarr.Core.csproj" />
+  <Project Path="Issuarr.Host/Issuarr.Host.csproj" />
+</Solution>

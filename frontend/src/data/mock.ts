@@ -8,11 +8,14 @@ export interface Issue {
   releaseDate: string; // ISO date
   status: IssueStatus;
   monitored: boolean;
+  serverId?: number;
   file?: { name: string; size: string; format: string };
 }
 
 export interface Title {
   id: string;
+  /** Server statistics; when absent they're computed from issues (demo data). */
+  serverStats?: { have: number; total: number; missing: number; sizeBytes: number; next?: string };
   slug: string;
   name: string;
   kind: Kind;
@@ -319,7 +322,9 @@ export function stats(t: Title) {
   const have = aired.filter((i) => i.status === 'downloaded').length;
   const monitoredAired = aired.filter((i) => i.monitored).length;
   const next = [...t.issues].filter((i) => i.status === 'unaired').sort((a, b) => a.releaseDate.localeCompare(b.releaseDate))[0];
-  const sizeMb = t.issues.reduce((acc, i) => acc + (i.file ? parseFloat(i.file.size) : 0), 0);
+  const sizeMb = t.serverStats
+    ? t.serverStats.sizeBytes / 1024 ** 2
+    : t.issues.reduce((acc, i) => acc + (i.file ? parseFloat(i.file.size) : 0), 0);
   return {
     have,
     total: monitoredAired || aired.length,
@@ -432,4 +437,8 @@ export const history: HistoryItem[] = [
 ];
 
 export const kindLabel: Record<Kind, string> = { comic: 'Comic', magazine: 'Magazine' };
-export const today = TODAY;
+// Live binding: switched to the real date when connected to a backend (see api.ts).
+export let today = TODAY;
+export function setToday(d: Date) {
+  today = d;
+}

@@ -4,3 +4,10 @@ dist/
 .env
 .DS_Store
 *.tsbuildinfo
+bin/
+obj/
+_data/
+/config/
+*.db
+*.db-shm
+*.db-wal

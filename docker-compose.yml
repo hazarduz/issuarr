@@ -1,0 +1,15 @@
+services:
+  issuarr:
+    build: .
+    container_name: issuarr
+    environment:
+      - TZ=Etc/UTC
+      # Set to "true" to start with a sample library you can click around in.
+      - ISSUARR_DEMO=false
+    volumes:
+      - ./config:/config
+      # Use the same /data layout as your download client so hardlinks work.
+      - /path/to/data:/data
+    ports:
+      - 8788:8788
+    restart: unless-stopped

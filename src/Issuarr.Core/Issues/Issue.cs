@@ -1,0 +1,40 @@
+namespace Issuarr.Core.Issues;
+
+public enum IssueStatus
+{
+    Downloaded,
+    Missing,
+    Downloading,
+    Unaired,
+    Unmonitored,
+}
+
+public class Issue
+{
+    public int Id { get; set; }
+    public int TitleId { get; set; }
+
+    /// <summary>Display number: "#37" for comics, "Nov 2026" or "2026-W48" for magazines.</summary>
+    public string Number { get; set; } = "";
+
+    /// <summary>Numeric key used for ordering (issue number, or yyyyMMdd for dated issues).</summary>
+    public double SortKey { get; set; }
+
+    public string? IssueTitle { get; set; }
+
+    /// <summary>yyyy-MM-dd</summary>
+    public string ReleaseDate { get; set; } = "";
+
+    public bool Monitored { get; set; } = true;
+    public int? IssueFileId { get; set; }
+}
+
+public class IssueFile
+{
+    public int Id { get; set; }
+    public int TitleId { get; set; }
+    public string RelativePath { get; set; } = "";
+    public long Size { get; set; }
+    public string Format { get; set; } = "";
+    public string DateAdded { get; set; } = "";
+}

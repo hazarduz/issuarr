@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Issuarr.Core\Issuarr.Core.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Issuarr</AssemblyName>
+    <RootNamespace>Issuarr.Host</RootNamespace>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!-- The built frontend (frontend/dist) is copied to UI/ next to the binary. -->
+  <ItemGroup>
+    <Content Include="../../frontend/dist/**" Link="UI/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('../../frontend/dist/index.html')" />
+  </ItemGroup>
+
+</Project>
