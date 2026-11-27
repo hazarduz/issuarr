@@ -14,15 +14,20 @@ namespace Issuarr.Core.Organizer;
 public partial class FileNameBuilder(IConfigService config)
 {
     public static readonly string[] Tokens =
-        ["{Title}", "{Title Year}", "{Publisher}", "{Issue}", "{Issue:000}", "{Issue Title}", "{Release Date}", "{Release Date:yyyy-MM}", "{Release Year}", "{Format}"];
+        ["{Title}", "{Author}", "{Title Year}", "{Publisher}", "{Issue}", "{Issue:000}", "{Issue Title}", "{Release Date}", "{Release Date:yyyy-MM}", "{Release Year}", "{Format}"];
 
     public string IssueFileName(Title title, Issue issue, string extension)
     {
-        var format = title.Kind == TitleKind.Comic ? config.ComicIssueFormat : config.MagazineIssueFormat;
+        var format = title.Kind switch
+        {
+            TitleKind.Comic => config.ComicIssueFormat,
+            TitleKind.Book => config.BookFileFormat,
+            _ => config.MagazineIssueFormat,
+        };
         return Build(format, title, issue, extension.TrimStart('.').ToUpperInvariant()) + "." + extension.TrimStart('.').ToLowerInvariant();
     }
 
-    public string TitleFolder(Title title) => Build(config.TitleFolderFormat, title, null, null);
+    public string TitleFolder(Title title) => Build(title.Kind == TitleKind.Book ? config.AuthorFolderFormat : config.TitleFolderFormat, title, null, null);
 
     public static string Build(string format, Title title, Issue? issue, string? fileFormat)
     {
@@ -32,7 +37,7 @@ public partial class FileNameBuilder(IConfigService config)
             var spec = m.Groups["spec"].Success ? m.Groups["spec"].Value : null;
             return token switch
             {
-                "title" => title.Name,
+                "title" or "author" => title.Name,
                 "title year" => title.Year.ToString(CultureInfo.InvariantCulture),
                 "publisher" => title.Publisher ?? "",
                 "issue" => IssueToken(issue, spec),

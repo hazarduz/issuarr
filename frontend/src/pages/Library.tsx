@@ -15,7 +15,7 @@ import { MonitorToggle, ProgressBar } from '../components/Status';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
 import { useToast } from '../components/Toast';
 import { api, isConnected } from '../data/api';
-import { kindLabel, parseDate, stats, titles, type Kind, type Title } from '../data/mock';
+import { kindLabel, kindPlural, parseDate, stats, titles, type Kind, type Title } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
 type View = 'posters' | 'overview' | 'table';
@@ -29,7 +29,7 @@ const filters: { id: FilterId; label: string; test: (t: Title) => boolean }[] = 
   { id: 'missing', label: 'Missing issues', test: (t) => stats(t).missing > 0 },
   { id: 'continuing', label: 'Continuing', test: (t) => t.status === 'continuing' },
   { id: 'ended', label: 'Ended', test: (t) => t.status === 'ended' },
-  { id: 'unmatched', label: 'Not matched to ComicVine/Metron', test: (t) => t.kind === 'comic' && !t.metadataSource },
+  { id: 'unmatched', label: 'Not matched to a metadata source', test: (t) => !t.metadataSource },
 ];
 
 function readView(): View {
@@ -148,9 +148,9 @@ export default function Library() {
         <Tool icon={Plus} label="Add New" onClick={() => navigate('/add')} />
         <Grow />
         <div className="segmented" style={{ marginRight: 8 }}>
-          {(['all', 'comic', 'magazine'] as const).map((k) => (
+          {(['all', 'comic', 'magazine', 'book'] as const).map((k) => (
             <button key={k} className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>
-              {k === 'all' ? 'All' : `${kindLabel[k]}s`}
+              {k === 'all' ? 'All' : kindPlural[k]}
             </button>
           ))}
         </div>

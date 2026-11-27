@@ -21,7 +21,8 @@ public static class QualityProfiles
     [
         new("CBZ / CBR", ["CBZ", "CBR", "CB7"], true, "Comic archives only. CBR and CB7 are upgraded to CBZ."),
         new("PDF Preferred", ["PDF", "EPUB", "CBZ", "CBR"], true, "Best for magazines. Anything else is upgraded to PDF."),
-        new("Any", ["CBZ", "CBR", "CB7", "PDF", "EPUB"], false, "Any format, first one wins, no upgrades."),
+        new("eBook", ["EPUB", "AZW3", "MOBI", "PDF"], true, "For books. AZW3, MOBI and PDF are upgraded to EPUB."),
+        new("Any", ["CBZ", "CBR", "CB7", "PDF", "EPUB", "AZW3", "MOBI"], false, "Any format, first one wins, no upgrades."),
     ];
 
     public static QualityProfile Get(string? name) =>

@@ -38,7 +38,7 @@ public class SearchService(
     public async Task<List<DownloadDecision>> Interactive(int titleId, int? issueId, CancellationToken ct)
     {
         var title = titles.Get(titleId) ?? throw new KeyNotFoundException("Title not found");
-        var releases = await SearchIndexers(title, ct);
+        var releases = await SearchIndexers(title, Queries(title, issueId is { } iid ? [iid] : null), ct);
         Remember(releases);
         var result = decisions.Decide(releases, automatic: false, onlyTitle: title);
         if (issueId != null)
@@ -53,7 +53,7 @@ public class SearchService(
     public async Task<int> Automatic(int titleId, IReadOnlyCollection<int>? issueIds, CancellationToken ct)
     {
         var title = titles.Get(titleId) ?? throw new KeyNotFoundException("Title not found");
-        var releases = await SearchIndexers(title, ct);
+        var releases = await SearchIndexers(title, Queries(title, issueIds), ct);
         var wanted = issueIds?.ToHashSet();
         var candidates = decisions.Decide(releases, automatic: true, onlyTitle: title)
             .Where(d => d.Approved && (wanted == null || wanted.Contains(d.Issue!.Id)));
@@ -136,7 +136,23 @@ public class SearchService(
         return grabbed;
     }
 
-    private async Task<List<ReleaseInfo>> SearchIndexers(Title title, CancellationToken ct)
+    /// <summary>
+    /// Comics and magazines are searched by title name and matched locally (indexer text search
+    /// is too fuzzy for "037" vs "#37"). Books are searched as "Author Book" — an author's name
+    /// alone returns too many unrelated results — falling back to the author for big batches.
+    /// </summary>
+    private List<string> Queries(Title title, IReadOnlyCollection<int>? issueIds)
+    {
+        if (title.Kind != TitleKind.Book)
+        {
+            return [title.Name];
+        }
+
+        var books = issueIds is { Count: > 0 and <= 5 } ? issues.Get(issueIds) : [];
+        return books.Count > 0 ? books.Select(b => $"{title.Name} {b.Number.Split(':')[0]}").ToList() : [title.Name];
+    }
+
+    private async Task<List<ReleaseInfo>> SearchIndexers(Title title, List<string> queries, CancellationToken ct)
     {
         var enabled = Enabled().ToList();
         if (enabled.Count == 0)
@@ -146,11 +162,11 @@ public class SearchService(
 
         // Search by title name only and match issues locally: indexers' text search is too fuzzy
         // to rely on "Title 037" vs "Title #37" vs "Title November 2026".
-        var tasks = enabled.Select(async x =>
+        var tasks = enabled.SelectMany(x => queries.Select(q => (x.Def, x.Impl, Query: q))).Select(async x =>
         {
             try
             {
-                return await x.Impl.Search(x.Def, title.Name, ct);
+                return await x.Impl.Search(x.Def, x.Query, ct);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {

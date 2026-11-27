@@ -1690,3 +1690,16 @@ div.folder-row:hover {
 .pill.clickable:hover {
   filter: brightness(1.2);
 }
+
+/* eBook placeholder covers: book-jacket style */
+.cover.book .masthead {
+  font-family: Georgia, 'Times New Roman', serif;
+  text-transform: none;
+  font-style: italic;
+  letter-spacing: 0;
+}
+.cover.book::before {
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.25) 0 6%, rgba(255, 255, 255, 0.08) 6% 7%, transparent 7%);
+  background-size: 100% 100%;
+  mask-image: none;
+}

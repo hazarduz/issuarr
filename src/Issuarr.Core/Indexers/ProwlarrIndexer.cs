@@ -18,7 +18,7 @@ public class ProwlarrIndexer(IHttpClientFactory http) : IIndexer
     [
         new("baseUrl", "Prowlarr URL", FieldType.Url, "e.g. http://prowlarr:9696", "http://localhost:9696", Required: true),
         new("apiKey", "API Key", FieldType.Password, "Prowlarr → Settings → General → API Key", Required: true),
-        new("categories", "Categories", HelpText: "7030 = Comics, 7010 = Magazines", Default: Categories.Default),
+        new("categories", "Categories", HelpText: "7030 = Comics, 7010 = Magazines, 7020 = eBooks", Default: Categories.Default),
         new("indexerIds", "Indexer IDs", HelpText: "Optional. Comma separated Prowlarr indexer IDs to limit the search to", Advanced: true),
     ];
 
@@ -40,7 +40,7 @@ public class ProwlarrIndexer(IHttpClientFactory http) : IIndexer
     private async Task<List<ReleaseInfo>> Fetch(ProviderDefinition def, string query, CancellationToken ct)
     {
         var qs = new List<string> { "type=search", "limit=100", "query=" + Uri.EscapeDataString(query) };
-        qs.AddRange(def.Get("categories", Categories.Default).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        qs.AddRange(Categories.Effective(def.Get("categories", Categories.Default)).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(c => "categories=" + c));
         qs.AddRange(def.Get("indexerIds").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(i => "indexerIds=" + i));

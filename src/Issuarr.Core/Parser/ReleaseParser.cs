@@ -45,10 +45,10 @@ public static partial class ReleaseParser
     private static readonly string[] MonthAbbrevs = CultureInfo.InvariantCulture.DateTimeFormat.AbbreviatedMonthNames
         .Where(m => m.Length > 0).ToArray();
 
-    [GeneratedRegex(@"\.(?<ext>cbz|cbr|cb7|pdf|epub)$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\.(?<ext>cbz|cbr|cb7|pdf|epub|mobi|azw3|azw)$", RegexOptions.IgnoreCase)]
     private static partial Regex ExtensionRegex();
 
-    [GeneratedRegex(@"\b(?<fmt>cbz|cbr|cb7|pdf|epub)\b", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?<fmt>cbz|cbr|cb7|pdf|epub|mobi|azw3)\b", RegexOptions.IgnoreCase)]
     private static partial Regex FormatTokenRegex();
 
     // "(Zone-Empire)" at the end, or "-GROUP" at the end of a scene-style name.

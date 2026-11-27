@@ -74,6 +74,11 @@ public record AddTitleResource : TitleResource
 
     /// <summary>For magazines without a metadata source: date of the first issue to track (yyyy-MM-dd).</summary>
     public string? FirstIssueDate { get; init; }
+
+    /// <summary>eBooks: add the author but only monitor this book.</summary>
+    public string? BookExternalId { get; init; }
+
+    public string? BookTitle { get; init; }
 }
 
 public record MonitorIssuesResource(List<int> IssueIds, bool Monitored);

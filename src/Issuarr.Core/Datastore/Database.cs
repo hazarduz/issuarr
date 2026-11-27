@@ -19,6 +19,7 @@ public class Database : IDatabase
         SqlMapper.AddTypeHandler(new DateTimeUtcHandler());
         JsonListHandler.Register();
         SqlMapper.AddTypeHandler(new JsonDictionaryHandler());
+        SqlMapper.AddTypeHandler(new DoubleHandler());
     }
 
     public Database(AppFolders folders)
@@ -43,6 +44,17 @@ public class Database : IDatabase
         var conn = new SqliteConnection(ConnectionString);
         conn.Open();
         return conn;
+    }
+
+    /// <summary>
+    /// SQLite may hand back a REAL column's whole-number values as integers; Dapper can't mix
+    /// the two in one result set, so always convert.
+    /// </summary>
+    private class DoubleHandler : SqlMapper.TypeHandler<double>
+    {
+        public override void SetValue(IDbDataParameter parameter, double value) => parameter.Value = value;
+
+        public override double Parse(object value) => Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>SQLite stores DateTimes as text; make sure they come back as UTC.</summary>

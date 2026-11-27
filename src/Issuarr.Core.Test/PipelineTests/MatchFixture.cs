@@ -16,6 +16,7 @@ public class MatchFixture
     {
         public string Source => "comicvine";
         public string DisplayName => "ComicVine";
+        public IReadOnlyList<TitleKind> Kinds => [TitleKind.Comic];
         public bool IsConfigured => true;
         public Task<List<SeriesInfo>> Search(string query, CancellationToken ct) => Task.FromResult(new List<SeriesInfo>());
 

@@ -1,13 +1,22 @@
 import { Check, ExternalLink, Link2, Loader2, Search, Unlink } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, type LookupResult } from '../data/api';
+import { itemWord, sourceName, type Kind } from '../data/mock';
 import { Modal } from './Modal';
+import { SafeImg } from './SafeImg';
 
 /**
  * Search ComicVine / Metron and pick the series a title (or an import folder) really is.
  * Used from the title page and from Library Import.
  */
+const sourcesFor: Record<Kind, string[]> = {
+  comic: ['comicvine', 'metron'],
+  magazine: ['wikidata', 'comicvine'],
+  book: ['openlibrary', 'googlebooks'],
+};
+
 export function MatchDialog({
+  kind = 'comic',
   initialTerm,
   currentId,
   confirmLabel = 'Match',
@@ -16,6 +25,7 @@ export function MatchDialog({
   onUnmatch,
   onClose,
 }: {
+  kind?: Kind;
   initialTerm: string;
   currentId?: string;
   confirmLabel?: string;
@@ -39,7 +49,7 @@ export function MatchDialog({
     setError(null);
     setPicked(null);
     try {
-      setResults(await api.lookup(t.trim(), s || undefined));
+      setResults(await api.lookup(t.trim(), s || undefined, kind));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Search failed');
       setResults(null);
@@ -68,7 +78,7 @@ export function MatchDialog({
 
   return (
     <Modal
-      title="Match to a series"
+      title={kind === 'book' ? 'Match to an author' : 'Match to a series'}
       icon={<Link2 size={18} color="var(--accent)" />}
       wide
       onClose={onClose}
@@ -103,7 +113,7 @@ export function MatchDialog({
       >
         <div className="add-search" style={{ flex: 1, maxWidth: 'none' }}>
           <Search size={18} />
-          <input style={{ height: 42, fontSize: 14 }} value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Series name" autoFocus />
+          <input style={{ height: 42, fontSize: 14 }} value={term} onChange={(e) => setTerm(e.target.value)} placeholder={kind === 'book' ? 'Author name' : 'Series name'} autoFocus />
         </div>
         <select
           className="input"
@@ -116,8 +126,11 @@ export function MatchDialog({
           title="Metadata source"
         >
           <option value="">Default source</option>
-          <option value="comicvine">ComicVine</option>
-          <option value="metron">Metron</option>
+          {sourcesFor[kind].map((s) => (
+            <option key={s} value={s}>
+              {sourceName[s]}
+            </option>
+          ))}
         </select>
         <button className="btn" type="submit" style={{ height: 42 }}>
           Search
@@ -130,7 +143,9 @@ export function MatchDialog({
         </div>
       )}
       {error && <div className="pill danger" style={{ height: 'auto', padding: '8px 12px', whiteSpace: 'normal' }}>{error}</div>}
-      {!loading && results?.length === 0 && <div className="empty">No series found. Try a shorter name, or add the year.</div>}
+      {!loading && results?.length === 0 && (
+        <div className="empty">{kind === 'magazine' ? 'Nothing found. Try another source, or a shorter name.' : `No ${kind === 'book' ? 'authors' : 'series'} found. Try a shorter name${kind === 'book' ? '' : ', or add the year'}.`}</div>
+      )}
 
       <div style={{ display: 'grid', gap: 8 }}>
         {!loading &&
@@ -148,7 +163,7 @@ export function MatchDialog({
                 title={taken ? 'Already in your library as another title' : undefined}
               >
                 <div className="lookup-cover" style={{ width: 54 }}>
-                  {r.coverUrl ? <img src={r.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <div style={{ aspectRatio: '2/3', background: 'var(--surface-2)' }} />}
+                  <SafeImg src={r.coverUrl} />
                 </div>
                 <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
                   <div style={{ fontWeight: 600 }}>
@@ -156,12 +171,17 @@ export function MatchDialog({
                   </div>
                   <div className="row-meta" style={{ marginTop: 4 }}>
                     {r.publisher && <span className="pill">{r.publisher}</span>}
-                    <span className="pill">{r.issueCount} issues</span>
+                    {r.issueCount > 0 && (
+                      <span className="pill">
+                        {r.issueCount} {itemWord(kind, true)}
+                      </span>
+                    )}
+                    {r.frequency && <span className="pill">{r.frequency}</span>}
                     {isCurrent && <span className="pill ok">Current match</span>}
                     {taken && <span className="pill info">In library</span>}
                     {r.siteUrl && (
                       <a className="pill" href={r.siteUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                        {r.source === 'metron' ? 'Metron' : 'ComicVine'} <ExternalLink size={11} />
+                        {sourceName[r.source] ?? r.source} <ExternalLink size={11} />
                       </a>
                     )}
                   </div>

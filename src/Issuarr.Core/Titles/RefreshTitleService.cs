@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Globalization;
 using Issuarr.Core.Issues;
 using Issuarr.Core.Metadata;
@@ -29,7 +30,7 @@ public class RefreshTitleService(
         int added;
         if (provider != null && title.ExternalId != null)
         {
-            added = await RefreshFromMetadata(title, provider, ct);
+            added = await RefreshFromMetadata(title, provider, ct, firstIssueDate);
         }
         else if (title.Kind == TitleKind.Magazine && Step(title.Frequency) != null)
         {
@@ -60,7 +61,7 @@ public class RefreshTitleService(
         }
     }
 
-    private async Task<int> RefreshFromMetadata(Title title, IMetadataProvider provider, CancellationToken ct)
+    private async Task<int> RefreshFromMetadata(Title title, IMetadataProvider provider, CancellationToken ct, DateOnly? firstIssueDate = null)
     {
         var series = await provider.GetSeries(title.ExternalId!, ct);
         title.Overview = series.Overview ?? title.Overview;
@@ -73,16 +74,21 @@ public class RefreshTitleService(
         var byExternal = local.Where(i => i.ExternalId != null).ToDictionary(i => i.ExternalId!);
         var newIssues = new List<Issue>();
 
+        var isBook = title.Kind == TitleKind.Book;
+        title.Frequency = series.Frequency ?? title.Frequency;
         foreach (var (info, index) in remote.Select((r, i) => (r, i)))
         {
-            var number = NormalizeNumber(info.Number);
-            var date = MetadataDates.Pick(info) ?? $"{title.Year}-01-01";
-            var existing = byExternal.GetValueOrDefault(info.ExternalId) ?? local.FirstOrDefault(i => i.ExternalId == null && i.Number == number);
+            // Books are identified by their title; comics by issue number.
+            var number = isBook ? (info.Name ?? "Untitled").Trim() : NormalizeNumber(info.Number);
+            var date = MetadataDates.Pick(info) ?? $"{(title.Year > 0 ? title.Year : 1900)}-01-01";
+            var sortKey = isBook ? DateSortKey(date, index) : (double)(IssueNumbering.GetNumber(number) ?? index);
+            var existing = byExternal.GetValueOrDefault(info.ExternalId)
+                           ?? local.FirstOrDefault(i => i.ExternalId == null && (isBook ? SameBook(i.Number, number) : i.Number == number));
             if (existing != null)
             {
                 existing.Number = number;
-                existing.SortKey = (double)(IssueNumbering.GetNumber(number) ?? index);
-                existing.IssueTitle = info.Name ?? existing.IssueTitle;
+                existing.SortKey = sortKey;
+                existing.IssueTitle = isBook ? existing.IssueTitle : info.Name ?? existing.IssueTitle;
                 existing.ReleaseDate = date;
                 existing.ExternalId = info.ExternalId;
                 existing.CoverUrl = info.CoverUrl ?? existing.CoverUrl;
@@ -94,8 +100,8 @@ public class RefreshTitleService(
             {
                 TitleId = title.Id,
                 Number = number,
-                SortKey = (double)(IssueNumbering.GetNumber(number) ?? index),
-                IssueTitle = info.Name,
+                SortKey = sortKey,
+                IssueTitle = isBook ? null : info.Name,
                 ReleaseDate = date,
                 Monitored = title.Monitored,
                 ExternalId = info.ExternalId,
@@ -106,6 +112,17 @@ public class RefreshTitleService(
         if (newIssues.Count > 0)
         {
             issues.InsertMany(newIssues);
+        }
+
+        // Magazine sources like Wikidata have details but no issue list: use the schedule.
+        if (remote.Count == 0 && title.Kind == TitleKind.Magazine && Step(title.Frequency) != null)
+        {
+            return RefreshSchedule(title, firstIssueDate);
+        }
+
+        if (isBook)
+        {
+            return newIssues.Count; // authors don't "end" the way series do
         }
 
         if (title.Status == TitleStatus.Continuing && remote.Count > 0)
@@ -183,6 +200,12 @@ public class RefreshTitleService(
         "annually" or "yearly" => d => d.AddYears(1),
         _ => null,
     };
+
+    private static double DateSortKey(string date, int index) =>
+        DateOnly.TryParse(date, CultureInfo.InvariantCulture, out var d) ? d.Year * 10000 + d.Month * 100 + d.Day + index / 1000.0 : index;
+
+    private static bool SameBook(string a, string b) =>
+        string.Equals(Regex.Replace(a.ToLowerInvariant(), "[^a-z0-9]", ""), Regex.Replace(b.ToLowerInvariant(), "[^a-z0-9]", ""), StringComparison.Ordinal);
 
     public static string NormalizeNumber(string raw)
     {

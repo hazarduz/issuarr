@@ -23,6 +23,11 @@ public interface IConfigService
     string ComicVineApiKey { get; }
     string MetronUsername { get; }
     string MetronPassword { get; }
+    string MagazineMetadataSource { get; }
+    string BookMetadataSource { get; }
+    string GoogleBooksApiKey { get; }
+    string BookFileFormat { get; }
+    string AuthorFolderFormat { get; }
     int RssSyncInterval { get; }
     int MinimumSeeders { get; }
     bool AutoRedownloadFailed { get; }
@@ -44,6 +49,11 @@ public class ConfigService(IDatabase db) : IConfigService
         ["comicVineApiKey"] = "",
         ["metronUsername"] = "",
         ["metronPassword"] = "",
+        ["magazineMetadataSource"] = "wikidata",
+        ["bookMetadataSource"] = "openlibrary",
+        ["googleBooksApiKey"] = "",
+        ["bookFileFormat"] = "{Title} - {Issue} ({Release Year})",
+        ["authorFolderFormat"] = "{Title}",
         ["rssSyncInterval"] = "15",
         ["minimumSeeders"] = "1",
         ["autoRedownloadFailed"] = "true",
@@ -102,6 +112,11 @@ public class ConfigService(IDatabase db) : IConfigService
     public string ComicVineApiKey => Get("comicVineApiKey");
     public string MetronUsername => Get("metronUsername");
     public string MetronPassword => Get("metronPassword");
+    public string MagazineMetadataSource => Get("magazineMetadataSource");
+    public string BookMetadataSource => Get("bookMetadataSource");
+    public string GoogleBooksApiKey => Get("googleBooksApiKey");
+    public string BookFileFormat => Get("bookFileFormat");
+    public string AuthorFolderFormat => Get("authorFolderFormat");
     public int RssSyncInterval => Math.Max(10, GetInt("rssSyncInterval"));
     public int MinimumSeeders => GetInt("minimumSeeders");
     public bool AutoRedownloadFailed => GetBool("autoRedownloadFailed");

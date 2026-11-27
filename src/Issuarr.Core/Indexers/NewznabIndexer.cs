@@ -21,7 +21,7 @@ public abstract class NewznabBase(IHttpClientFactory http) : IIndexer
         new("baseUrl", "URL", FieldType.Url, "e.g. http://prowlarr:9696/1/ or https://api.nzbgeek.info", Required: true),
         new("apiPath", "API Path", HelpText: "Usually /api", Default: "/api", Advanced: true),
         new("apiKey", "API Key", FieldType.Password),
-        new("categories", "Categories", HelpText: "Comma separated. 7030 = Comics, 7010 = Magazines", Default: Categories.Default),
+        new("categories", "Categories", HelpText: "Comma separated. 7030 = Comics, 7010 = Magazines, 7020 = eBooks", Default: Categories.Default),
     ];
 
     public Task<List<ReleaseInfo>> Search(ProviderDefinition def, string query, CancellationToken ct) =>
@@ -44,7 +44,7 @@ public abstract class NewznabBase(IHttpClientFactory http) : IIndexer
 
     private async Task<List<ReleaseInfo>> Fetch(ProviderDefinition def, Dictionary<string, string> args, CancellationToken ct)
     {
-        args["cat"] = def.Get("categories", Categories.Default);
+        args["cat"] = Categories.Effective(def.Get("categories", Categories.Default));
         args["extended"] = "1";
         args["limit"] = "100";
         var doc = await Get(def, args, ct);

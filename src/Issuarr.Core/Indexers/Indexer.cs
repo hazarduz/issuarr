@@ -34,8 +34,11 @@ public interface IIndexer : IProvider
     Task Test(ProviderDefinition def, CancellationToken ct);
 }
 
-/// <summary>Newznab categories for comics and magazines (Books → Comics / Mags).</summary>
+/// <summary>Newznab categories: Books → Comics (7030), Mags (7010) and eBook (7020).</summary>
 public static class Categories
 {
-    public const string Default = "7030,7010";
+    public const string Default = "7030,7010,7020";
+
+    /// <summary>Indexers saved before eBook support used the old default; include eBooks for them too.</summary>
+    public static string Effective(string configured) => configured.Replace(" ", "") == "7030,7010" ? Default : configured;
 }

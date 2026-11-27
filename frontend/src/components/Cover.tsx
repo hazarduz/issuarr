@@ -27,7 +27,7 @@ export function Cover({ title, issue, size = 'md' }: { title: Title; issue?: str
       </div>
       <div className="cover-foot">
         <span>{title.publisher}</span>
-        <span>{issue ?? (title.kind === 'comic' ? `#${title.issues.length}` : title.frequency)}</span>
+        <span>{issue ?? (title.kind === 'comic' ? `#${title.issues.length}` : title.kind === 'book' ? `${title.issues.length} books` : title.frequency)}</span>
       </div>
     </div>
   );

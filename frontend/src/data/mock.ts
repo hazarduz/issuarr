@@ -1,4 +1,4 @@
-export type Kind = 'comic' | 'magazine';
+export type Kind = 'comic' | 'magazine' | 'book';
 export type IssueStatus = 'downloaded' | 'missing' | 'downloading' | 'unaired' | 'unmonitored';
 
 export interface Issue {
@@ -440,7 +440,11 @@ export const history: HistoryItem[] = [
   { id: 'h6', titleId: '8', issue: 'Q3 2026', event: 'deleted', source: 'Upgrade', date: '2026-11-20 09:10' },
 ];
 
-export const kindLabel: Record<Kind, string> = { comic: 'Comic', magazine: 'Magazine' };
+export const kindLabel: Record<Kind, string> = { comic: 'Comic', magazine: 'Magazine', book: 'eBook' };
+export const kindPlural: Record<Kind, string> = { comic: 'Comics', magazine: 'Magazines', book: 'eBooks' };
+/** What one entry of a title is called: issues for comics/magazines, books for authors. */
+export const itemWord = (k: Kind, plural = false) => (k === 'book' ? (plural ? 'books' : 'book') : plural ? 'issues' : 'issue');
+export const sourceName: Record<string, string> = { comicvine: 'ComicVine', metron: 'Metron', openlibrary: 'Open Library', googlebooks: 'Google Books', wikidata: 'Wikidata' };
 // Live binding: switched to the real date when connected to a backend (see api.ts).
 export let today = TODAY;
 export function setToday(d: Date) {

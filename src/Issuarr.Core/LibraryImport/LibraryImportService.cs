@@ -58,7 +58,8 @@ public interface ILibraryImportService
 public partial class LibraryImportService(ITitleService titles, IIssueRepository issues, IIssueFileRepository files, IClock clock)
     : ILibraryImportService
 {
-    public static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".cbz", ".cbr", ".cb7", ".pdf", ".epub" };
+    public static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".cbz", ".cbr", ".cb7", ".pdf", ".epub", ".mobi", ".azw3", ".azw" };
+    private static readonly HashSet<string> EbookExtensions = new(StringComparer.OrdinalIgnoreCase) { ".epub", ".mobi", ".azw3", ".azw" };
 
     private static readonly string[][] Palettes =
     [
@@ -98,6 +99,7 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
 
             var (name, year) = ParseFolderName(dir.Name);
             var parsed = found.Select(f => ReleaseParser.Parse(f.Name)).ToList();
+            var kind = GuessKind(found, parsed);
             var match = existing.FirstOrDefault(t => SamePath(t.Path, dir.FullName))
                         ?? existing.FirstOrDefault(t => ReleaseParser.CleanTitle(t.Name) == ReleaseParser.CleanTitle(name) && (year == null || t.Year == year));
 
@@ -107,9 +109,11 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
                 FolderName = dir.Name,
                 Name = name,
                 Year = year ?? parsed.Where(p => p?.Year != null).Select(p => p!.Year).Min(),
-                Kind = GuessKind(found, parsed),
+                Kind = kind,
                 FileCount = found.Count,
-                MatchedFileCount = parsed.Count(p => p != null && (p.IssueNumber != null || (p.IsDated && p.Year != null))),
+                MatchedFileCount = kind == TitleKind.Book
+                    ? found.Select(f => Path.GetFileNameWithoutExtension(f.Name).ToLowerInvariant()).Distinct().Count()
+                    : parsed.Count(p => p != null && (p.IssueNumber != null || (p.IsDated && p.Year != null))),
                 Size = found.Sum(f => f.Length),
                 ExistingTitleId = match?.Id,
                 ExistingTitleName = match?.Name,
@@ -165,7 +169,7 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
 
         foreach (var file in found.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var draft = ToIssue(file, ReleaseParser.Parse(file.Name), req.Year);
+            var draft = req.Kind == TitleKind.Book ? BookIssue(file, name, drafts.Count) : ToIssue(file, ReleaseParser.Parse(file.Name), req.Year);
             if (draft == null)
             {
                 result.UnmatchedFiles.Add(System.IO.Path.GetRelativePath(dir.FullName, file.FullName));
@@ -196,7 +200,7 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
             Frequency = frequency,
             Status = TitleStatus.Continuing,
             Monitored = true,
-            QualityProfile = req.Kind == TitleKind.Comic ? "CBZ / CBR" : "Any",
+            QualityProfile = req.Kind switch { TitleKind.Comic => "CBZ / CBR", TitleKind.Book => "eBook", _ => "Any" },
             Path = dir.FullName,
             MetadataSource = string.IsNullOrEmpty(req.ExternalId) ? null : req.MetadataSource,
             ExternalId = string.IsNullOrEmpty(req.ExternalId) ? null : req.ExternalId,
@@ -281,6 +285,31 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
         return null;
     }
 
+    /// <summary>
+    /// A book file: "Author - Title (2010).epub", "Title - Author.epub" or just "Title.epub".
+    /// The author's name and any year/format tags are stripped to leave the book title.
+    /// </summary>
+    public static (Issue Issue, string Freq)? BookIssue(FileInfo file, string author, int index)
+    {
+        var name = Path.GetFileNameWithoutExtension(file.Name).Replace('_', ' ');
+        name = Regex.Replace(name, @"[\(\[][^\)\]]*[\)\]]", " ");
+        var parts = name.Split(" - ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        if (parts.Count > 1)
+        {
+            parts.RemoveAll(p => BookMatcher.AuthorScore(BookMatcher.Normalize(p), author) > 0 && BookMatcher.Normalize(p).Trim().Split(' ').Length <= 4);
+        }
+
+        var title = Regex.Replace(string.Join(" - ", parts), @"\s{2,}", " ").Trim(' ', '-', '.');
+        if (title.Length == 0)
+        {
+            return null;
+        }
+
+        var year = Regex.Match(file.Name, @"\b(19|20)\d{2}\b");
+        var date = year.Success ? $"{year.Value}-01-01" : DateOnly.FromDateTime(file.LastWriteTime).ToString("yyyy-MM-dd");
+        return (new Issue { Number = title, SortKey = int.Parse(date[..4]) * 10000 + index / 1000.0, ReleaseDate = date, Monitored = true }, "");
+    }
+
     public static (string Name, int? Year) ParseFolderName(string folder)
     {
         var m = FolderYear().Match(folder);
@@ -294,6 +323,11 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
 
     private static TitleKind GuessKind(List<FileInfo> found, List<ParsedRelease?> parsed)
     {
+        if (found.Count(f => EbookExtensions.Contains(f.Extension)) * 2 > found.Count)
+        {
+            return TitleKind.Book;
+        }
+
         var comicFiles = found.Count(f => f.Extension.StartsWith(".cb", StringComparison.OrdinalIgnoreCase));
         if (comicFiles * 2 > found.Count)
         {

@@ -42,41 +42,67 @@ public class DecisionMaker(
         var pendingIssues = pending.PendingIssueIds();
         var decisions = new List<DownloadDecision>();
 
+        List<Issue> IssuesOf(Title t)
+        {
+            if (!issueCache.TryGetValue(t.Id, out var list))
+            {
+                issueCache[t.Id] = list = issues.GetByTitle(t.Id);
+                fileCache[t.Id] = files.GetByTitle(t.Id).ToDictionary(f => f.Id);
+            }
+
+            return list;
+        }
+
+        var authors = allTitles.Where(t => t.Kind == TitleKind.Book).ToList();
+        var others = allTitles.Where(t => t.Kind != TitleKind.Book).ToList();
+
         foreach (var release in releases.DistinctBy(r => r.Guid))
         {
             var d = new DownloadDecision { Release = release, Parsed = ReleaseParser.Parse(release.Title) };
             decisions.Add(d);
             d.Format = d.Parsed?.Format ?? FormatFromTitle(release.Title);
 
-            if (d.Parsed == null)
+            // Books first: their names don't follow the comic "Title 001 (Year)" pattern.
+            if (authors.Count > 0 && BookMatcher.Match(release.Title, authors, IssuesOf) is { } book)
             {
-                d.Rejections.Add("Couldn't understand the release name");
+                d.Title = book.Title;
+                d.Issue = book.Book;
+            }
+            else if (onlyTitle?.Kind == TitleKind.Book)
+            {
+                d.Rejections.Add(BookMatcher.AuthorScore(BookMatcher.Normalize(release.Title), onlyTitle.Name) > 0
+                    ? $"Couldn't match the release to one of {onlyTitle.Name}'s books"
+                    : $"Release doesn't mention {onlyTitle.Name}");
                 continue;
             }
-
-            var clean = ReleaseParser.CleanTitle(d.Parsed.TitleName);
-            d.Title = allTitles.FirstOrDefault(t => ReleaseParser.CleanTitle(t.Name) == clean)
-                      ?? allTitles.FirstOrDefault(t => ReleaseParser.CleanTitle($"{t.Name} {t.Year}") == clean);
-            if (d.Title == null)
+            else
             {
-                d.Rejections.Add(onlyTitle != null ? $"Release is for \"{d.Parsed.TitleName}\", not {onlyTitle.Name}" : $"\"{d.Parsed.TitleName}\" isn't in your library");
-                continue;
+                if (d.Parsed == null)
+                {
+                    d.Rejections.Add("Couldn't understand the release name");
+                    continue;
+                }
+
+                var clean = ReleaseParser.CleanTitle(d.Parsed.TitleName);
+                d.Title = others.FirstOrDefault(t => ReleaseParser.CleanTitle(t.Name) == clean)
+                          ?? others.FirstOrDefault(t => ReleaseParser.CleanTitle($"{t.Name} {t.Year}") == clean);
+                if (d.Title == null)
+                {
+                    d.Rejections.Add(onlyTitle != null ? $"Release is for \"{d.Parsed.TitleName}\", not {onlyTitle.Name}" : $"\"{d.Parsed.TitleName}\" isn't in your library");
+                    continue;
+                }
+
+                d.Issue = MatchIssue(d.Parsed, IssuesOf(d.Title));
+                if (d.Issue == null)
+                {
+                    d.Rejections.Add(d.Parsed.IssueNumber != null
+                        ? $"Issue #{d.Parsed.IssueNumber} isn't known for {d.Title.Name}"
+                        : d.Parsed.IsDated ? $"No {d.Title.Name} issue matches that date" : "No issue number or date in the release name");
+                    continue;
+                }
             }
 
-            if (!issueCache.TryGetValue(d.Title.Id, out var titleIssues))
-            {
-                issueCache[d.Title.Id] = titleIssues = issues.GetByTitle(d.Title.Id);
-                fileCache[d.Title.Id] = files.GetByTitle(d.Title.Id).ToDictionary(f => f.Id);
-            }
-
-            d.Issue = MatchIssue(d.Parsed, titleIssues);
-            if (d.Issue == null)
-            {
-                d.Rejections.Add(d.Parsed.IssueNumber != null
-                    ? $"Issue #{d.Parsed.IssueNumber} isn't known for {d.Title.Name}"
-                    : d.Parsed.IsDated ? $"No {d.Title.Name} issue matches that date" : "No issue number or date in the release name");
-                continue;
-            }
+            IssuesOf(d.Title);
 
             var profile = QualityProfiles.Get(d.Title.QualityProfile);
             if (!profile.Allows(d.Format))
@@ -162,7 +188,7 @@ public class DecisionMaker(
     private static string? FormatFromTitle(string title)
     {
         var t = title.ToUpperInvariant();
-        foreach (var f in new[] { "CBZ", "CBR", "CB7", "PDF", "EPUB" })
+        foreach (var f in new[] { "CBZ", "CBR", "CB7", "PDF", "EPUB", "AZW3", "MOBI" })
         {
             if (System.Text.RegularExpressions.Regex.IsMatch(t, $@"\b{f}\b"))
             {

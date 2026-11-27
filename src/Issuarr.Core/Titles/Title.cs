@@ -4,6 +4,9 @@ public enum TitleKind
 {
     Comic = 0,
     Magazine = 1,
+
+    /// <summary>An author; their books are the title's "issues".</summary>
+    Book = 2,
 }
 
 public enum TitleStatus

@@ -135,17 +135,20 @@ function RootFolders() {
   );
 }
 
-const tokens = ['{Title}', '{Title Year}', '{Publisher}', '{Issue}', '{Issue:000}', '{Issue Title}', '{Release Date}', '{Release Date:yyyy-MM}', '{Release Year}', '{Format}'];
+const tokens = ['{Title}', '{Author}', '{Title Year}', '{Publisher}', '{Issue}', '{Issue:000}', '{Issue Title}', '{Release Date}', '{Release Date:yyyy-MM}', '{Release Year}', '{Format}'];
 
 /** Client-side preview of a naming format, using a sample issue. */
-function preview(format: string, kind: 'comic' | 'magazine') {
+function preview(format: string, kind: 'comic' | 'magazine' | 'book') {
   const sample =
     kind === 'comic'
       ? { title: 'Starfall Rangers', year: '2023', publisher: 'Northlight Comics', issue: '37', padded: '037', issueTitle: 'Signal Lost', date: '2026-11-07', ym: '2026-11', ry: '2026', fmt: 'CBZ', ext: 'cbz' }
-      : { title: 'Circuit & Solder', year: '2015', publisher: 'Workbench Media', issue: 'Nov 2026', padded: 'Nov 2026', issueTitle: '', date: '2026-11-01', ym: '2026-11', ry: '2026', fmt: 'PDF', ext: 'pdf' };
+      : kind === 'book'
+        ? { title: 'Ursula K. Le Guin', year: '1969', publisher: '', issue: 'The Left Hand of Darkness', padded: 'The Left Hand of Darkness', issueTitle: '', date: '1969-03-01', ym: '1969-03', ry: '1969', fmt: 'EPUB', ext: 'epub' }
+        : { title: 'Circuit & Solder', year: '2015', publisher: 'Workbench Media', issue: 'Nov 2026', padded: 'Nov 2026', issueTitle: '', date: '2026-11-01', ym: '2026-11', ry: '2026', fmt: 'PDF', ext: 'pdf' };
   const name = format.replace(/\{([^}:]+)(?::([^}]+))?\}/g, (m, token: string, spec?: string) => {
     switch (token.trim().toLowerCase()) {
       case 'title':
+      case 'author':
         return sample.title;
       case 'title year':
         return sample.year;
@@ -212,8 +215,14 @@ function Media({ cfg }: { cfg: Config }) {
       <Row label="Magazine Issue Format" help={<>Example: <span className="mono">{preview(v.magazineIssueFormat ?? '', 'magazine')}</span></>}>
         <NamingInput value={v.magazineIssueFormat ?? ''} onChange={(x) => cfg.set('magazineIssueFormat', x)} />
       </Row>
+      <Row label="eBook File Format" help={<>Title is the author, Issue is the book. Example: <span className="mono">{preview(v.bookFileFormat ?? '', 'book')}</span></>}>
+        <NamingInput value={v.bookFileFormat ?? ''} onChange={(x) => cfg.set('bookFileFormat', x)} />
+      </Row>
       <Row label="Title Folder Format" help={<>Example: <span className="mono">{preview(v.titleFolderFormat ?? '', 'comic').replace(/\.cbz$/, '')}</span></>}>
         <NamingInput value={v.titleFolderFormat ?? ''} onChange={(x) => cfg.set('titleFolderFormat', x)} />
+      </Row>
+      <Row label="Author Folder Format" help={<>For eBooks. Example: <span className="mono">{preview(v.authorFolderFormat ?? '', 'book').replace(/\.epub$/, '')}</span></>}>
+        <NamingInput value={v.authorFolderFormat ?? ''} onChange={(x) => cfg.set('authorFolderFormat', x)} />
       </Row>
       <Row label="Use Hardlinks" help="Hardlink torrent downloads instead of copying, so they keep seeding without using extra space. Needs the downloads and library on the same drive.">
         <Switch on={bool('useHardlinks')} onChange={(x) => cfg.set('useHardlinks', String(x))} />
@@ -307,9 +316,9 @@ function General({ cfg, host, setHost }: { cfg: Config; host: HostConfig | null;
 
   return (
     <>
-      <h3 style={{ margin: '0 0 12px' }}>Metadata</h3>
+      <h3 style={{ margin: '0 0 12px' }}>Comics</h3>
       <div className="card card-body">
-        <Row label="Comic Metadata Source" help="Where Add New finds comic series and their issue lists.">
+        <Row label="Metadata Source" help="Where Add New finds comic series, their issue lists and covers.">
           <select className="input" value={v.metadataSource ?? 'comicvine'} onChange={(e) => cfg.set('metadataSource', e.target.value)}>
             <option value="comicvine">ComicVine</option>
             <option value="metron">Metron</option>
@@ -329,6 +338,57 @@ function General({ cfg, host, setHost }: { cfg: Config; host: HostConfig | null;
             </Row>
           </>
         )}
+      </div>
+
+      <h3 style={{ margin: '28px 0 12px' }}>Magazines</h3>
+      <div className="card card-body">
+        <Row
+          label="Metadata Source"
+          help={
+            (v.magazineMetadataSource ?? 'wikidata') === 'wikidata'
+              ? 'Free, no key. Fills in publisher, how often it comes out, start year, description and logo/cover. Issues come from the release schedule (no site lists magazine issues).'
+              : v.magazineMetadataSource === 'comicvine'
+                ? 'Best for comic-style magazines (2000 AD, Heavy Metal, MAD…): full issue lists and covers. Uses the ComicVine key above.'
+                : 'No lookups: type the details yourself; issues come from the release schedule.'
+          }
+        >
+          <select className="input" value={v.magazineMetadataSource ?? 'wikidata'} onChange={(e) => cfg.set('magazineMetadataSource', e.target.value)}>
+            <option value="wikidata">Wikidata (recommended)</option>
+            <option value="comicvine">ComicVine</option>
+            <option value="none">None (manual only)</option>
+          </select>
+        </Row>
+      </div>
+
+      <h3 style={{ margin: '28px 0 12px' }}>eBooks</h3>
+      <div className="card card-body">
+        <Row
+          label="Metadata Source"
+          help={
+            (v.bookMetadataSource ?? 'openlibrary') === 'openlibrary'
+              ? 'Free, no key. Real author records with full bibliographies — the best fit for following authors.'
+              : 'Excellent covers and descriptions. Authors are matched by name, so book lists can be noisier than Open Library.'
+          }
+        >
+          <select className="input" value={v.bookMetadataSource ?? 'openlibrary'} onChange={(e) => cfg.set('bookMetadataSource', e.target.value)}>
+            <option value="openlibrary">Open Library (recommended)</option>
+            <option value="googlebooks">Google Books</option>
+          </select>
+        </Row>
+        <Row
+          label="Google Books API Key"
+          help={
+            <>
+              Optional. Google Books works without one on a shared quota; a free key from{' '}
+              <a href="https://console.cloud.google.com/apis/library/books.googleapis.com" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
+                Google Cloud
+              </a>{' '}
+              avoids hitting the limit.
+            </>
+          }
+        >
+          <input className="input mono" type="password" autoComplete="off" value={v.googleBooksApiKey ?? ''} onChange={(e) => cfg.set('googleBooksApiKey', e.target.value)} />
+        </Row>
       </div>
 
       <h3 style={{ margin: '28px 0 12px' }}>Security</h3>

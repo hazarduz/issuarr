@@ -57,7 +57,7 @@ public class HealthCheckService(
             results.Add(new("ImportCheck", "warning", $"Couldn't import \"{d.Item.Title}\": {string.Join(" ", d.StatusMessages)}", "/activity"));
         }
 
-        var source = config.MetadataSource;
+        var source = config.MetadataSource; // comics; Open Library, Google Books and Wikidata need no key
         if (source == "comicvine" && config.ComicVineApiKey.Length == 0)
         {
             results.Add(new("MetadataCheck", "warning", "Add a ComicVine API key (free) in Settings → General to search for comics.", "/settings/general"));

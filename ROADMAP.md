@@ -9,6 +9,8 @@
 - [x] Import: rename, move/hardlink, ComicInfo.xml, failed download handling + re-search
 - [x] Library import, rename, file management, title edit/delete
 - [x] Connections: Komga, Kavita, Discord, Webhook
+- [x] eBooks: authors and books from Open Library / Google Books; book release matching and import
+- [x] Magazine details from Wikidata or ComicVine
 - [x] Forms/Basic login, API key, iCal feed, health checks, scheduled tasks
 
 ## Next
@@ -20,3 +22,5 @@
 - [ ] Logs page and backups of `/config`
 - [ ] Recycle bin for deleted files
 - [ ] OPDS feed
+- [ ] Book series (e.g. Stormlight Archive) grouping on author pages
+- [ ] Audiobooks

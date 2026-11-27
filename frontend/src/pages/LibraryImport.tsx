@@ -190,6 +190,7 @@ export default function LibraryImport() {
                           >
                             <option value="comic">Comic</option>
                             <option value="magazine">Magazine</option>
+                            <option value="book">eBook (author)</option>
                           </select>
                         </td>
                         <td>
@@ -296,12 +297,13 @@ export default function LibraryImport() {
 
       {matching && (
         <MatchDialog
+          kind={matching.kind}
           initialTerm={matching.name + (matching.year ? ` ${matching.year}` : '')}
           confirmLabel="Use this series"
           showNameOption={false}
           onClose={() => setMatching(null)}
           onPick={(m) => {
-            update(matching.path, { match: m, name: m.name, year: m.year ?? matching.year, kind: 'comic', selected: true });
+            update(matching.path, { match: m, name: m.name, year: m.year ?? matching.year, selected: true });
             setMatching(null);
           }}
         />

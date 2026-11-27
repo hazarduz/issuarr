@@ -26,7 +26,7 @@ public record HostConfigResource
 public class ConfigController(IConfigService config, ConfigFile file) : ControllerBase
 {
     private const string Hidden = "********";
-    private static readonly string[] Secrets = ["comicVineApiKey", "metronPassword"];
+    private static readonly string[] Secrets = ["comicVineApiKey", "metronPassword", "googleBooksApiKey"];
 
     /// <summary>Media management, metadata and download handling settings.</summary>
     [HttpGet]
@@ -41,7 +41,7 @@ public class ConfigController(IConfigService config, ConfigFile file) : Controll
             values.Remove(key);
         }
 
-        foreach (var key in new[] { "comicIssueFormat", "magazineIssueFormat", "titleFolderFormat" })
+        foreach (var key in new[] { "comicIssueFormat", "magazineIssueFormat", "titleFolderFormat", "bookFileFormat", "authorFolderFormat" })
         {
             if (values.TryGetValue(key, out var fmt) && string.IsNullOrWhiteSpace(fmt))
             {

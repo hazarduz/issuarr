@@ -88,6 +88,13 @@ public class Program
         services.AddSingleton<INotificationService, NotificationService>();
         services.AddSingleton<IMetadataProvider, ComicVine>();
         services.AddSingleton<IMetadataProvider, Metron>();
+        services.AddSingleton<OpenLibrary>();
+        services.AddSingleton<GoogleBooks>();
+        services.AddSingleton<IMetadataProvider>(sp => sp.GetRequiredService<OpenLibrary>());
+        services.AddSingleton<IMetadataProvider>(sp => sp.GetRequiredService<GoogleBooks>());
+        services.AddSingleton<IBookSearch>(sp => sp.GetRequiredService<OpenLibrary>());
+        services.AddSingleton<IBookSearch>(sp => sp.GetRequiredService<GoogleBooks>());
+        services.AddSingleton<IMetadataProvider, Wikidata>();
 
         // Searching and downloading
         services.AddSingleton<TrackedDownloadService>();

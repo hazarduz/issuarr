@@ -24,7 +24,7 @@ import { DeleteTitleDialog, EditTitleDialog, FilesDialog, HistoryDialog, Interac
 import { useToast } from '../components/Toast';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
 import { api, isConnected } from '../data/api';
-import { kindLabel, parseDate, stats, titles, type Issue } from '../data/mock';
+import { itemWord, kindLabel, parseDate, sourceName, stats, titles, type Issue } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
 type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | { search: Issue | null };
@@ -41,7 +41,8 @@ export default function TitleDetail() {
   const byYear = useMemo(() => {
     const g = new Map<string, Issue[]>();
     title?.issues.forEach((i) => {
-      const y = i.releaseDate.slice(0, 4);
+      // An author's books read better as one list than split by publication year.
+      const y = title.kind === 'book' ? 'Books' : i.releaseDate.slice(0, 4);
       g.set(y, [...(g.get(y) ?? []), i]);
     });
     return [...g.entries()];
@@ -141,7 +142,7 @@ export default function TitleDetail() {
             </h1>
             <div className="facts">
               <span>
-                <BookOpen size={15} /> {kindLabel[title.kind]}
+                <BookOpen size={15} /> {title.kind === 'book' ? 'Author' : kindLabel[title.kind]}
               </span>
               {title.publisher && (
                 <span>
@@ -149,7 +150,7 @@ export default function TitleDetail() {
                 </span>
               )}
               <span>
-                <CalendarClock size={15} /> {title.frequency ? `${title.frequency} · ` : ''}since {title.year}
+                <CalendarClock size={15} /> {title.kind === 'book' ? `${title.issues.length} books` : `${title.frequency ? `${title.frequency} · ` : ''}since ${title.year}`}
               </span>
               <span>
                 <HardDrive size={15} /> {s.size}
@@ -159,14 +160,16 @@ export default function TitleDetail() {
               {title.status === 'ended' ? <span className="pill info">Ended</span> : <span className="pill ok">Continuing</span>}
               {title.metadataSource ? (
                 <span className="pill clickable" title="Change match" onClick={needsLive('match')}>
-                  <Link2 size={11} /> {title.metadataSource === 'metron' ? 'Metron' : 'ComicVine'}
+                  <Link2 size={11} /> {sourceName[title.metadataSource] ?? title.metadataSource}
                 </span>
               ) : (
-                title.kind === 'comic' && (
-                  <span className="pill warn clickable" title="Link to ComicVine or Metron for the full issue list, dates and cover" onClick={needsLive('match')}>
-                    <Link2 size={11} /> Not matched
-                  </span>
-                )
+                <span
+                  className={`pill ${title.kind === 'magazine' ? '' : 'warn'} clickable`}
+                  title={title.kind === 'book' ? 'Link to Open Library or Google Books for the full book list and covers' : title.kind === 'magazine' ? 'Link to Wikidata or ComicVine for details and cover' : 'Link to ComicVine or Metron for the full issue list, dates and cover'}
+                  onClick={needsLive('match')}
+                >
+                  <Link2 size={11} /> Not matched
+                </span>
               )}
               {title.tags.map((t) => (
                 <span className="tag" key={t}>
@@ -187,7 +190,7 @@ export default function TitleDetail() {
                 <div className="v">{title.qualityProfile}</div>
               </div>
               <div className="info-cell">
-                <div className="k">Next Issue</div>
+                <div className="k">Next {title.kind === 'book' ? 'Book' : 'Issue'}</div>
                 <div className="v">{s.next ? parseDate(s.next.releaseDate).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—'}</div>
               </div>
               <div className="info-cell">
@@ -205,8 +208,8 @@ export default function TitleDetail() {
         {byYear.length === 0 && (
           <div className="card empty">
             <div>
-              <div style={{ fontWeight: 600, color: 'var(--text)' }}>No issues yet</div>
-              <div>{title.metadataSource || title.kind === 'magazine' ? 'Click Refresh to load the issue list.' : 'Import files or add issues from a metadata source.'}</div>
+              <div style={{ fontWeight: 600, color: 'var(--text)' }}>No {itemWord(title.kind, true)} yet</div>
+              <div>{title.metadataSource || title.kind === 'magazine' ? `Click Refresh to load the ${itemWord(title.kind)} list.` : 'Import files, or Match this title to a metadata source.'}</div>
             </div>
           </div>
         )}
@@ -224,16 +227,18 @@ export default function TitleDetail() {
                 <span className={`pill ${have === aired && aired > 0 ? 'ok' : have === 0 ? '' : 'danger'}`}>
                   {have} / {aired}
                 </span>
-                <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>{issues.length} issues</span>
+                <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>
+                  {issues.length} {itemWord(title.kind, issues.length !== 1)}
+                </span>
                 <span onClick={(e) => e.stopPropagation()} style={{ marginLeft: 'auto' }}>
                   <button
                     className="icon-btn"
                     style={{ width: 30, height: 30 }}
-                    title={`Search all missing ${year} issues`}
+                    title={`Search all missing ${year} ${itemWord(title.kind, true)}`}
                     onClick={() => {
                       const wanted = issues.filter((i) => i.monitored && i.status === 'missing' && i.serverId).map((i) => i.serverId!);
-                      if (wanted.length === 0) return toast(`No missing monitored issues in ${year}`);
-                      run(`year-${year}`, 'IssueSearch', wanted, `Searching for ${wanted.length} issues…`);
+                      if (wanted.length === 0) return toast(`No missing monitored ${itemWord(title.kind, true)} in ${year}`);
+                      run(`year-${year}`, 'IssueSearch', wanted, `Searching for ${wanted.length} ${itemWord(title.kind, wanted.length !== 1)}…`);
                     }}
                   >
                     {busy[`year-${year}`] ? <Loader2 size={15} className="spin-icon" /> : <Search size={15} />}
@@ -247,8 +252,8 @@ export default function TitleDetail() {
                     <thead>
                       <tr>
                         <th style={{ width: 40 }} />
-                        <th>Issue</th>
-                        <th>Release Date</th>
+                        <th>{title.kind === 'book' ? 'Book' : 'Issue'}</th>
+                        <th>{title.kind === 'book' ? 'Published' : 'Release Date'}</th>
                         <th>File</th>
                         <th>Size</th>
                         <th>Status</th>
@@ -305,7 +310,7 @@ export default function TitleDetail() {
         })}
         {title.metadataSource && (
           <div className="help" style={{ textAlign: 'right' }}>
-            Issue list from {title.metadataSource === 'metron' ? 'Metron' : 'ComicVine'}
+            {title.kind === 'book' ? 'Book list' : title.kind === 'magazine' ? 'Details' : 'Issue list'} from {sourceName[title.metadataSource] ?? title.metadataSource}
           </div>
         )}
       </div>
@@ -317,6 +322,7 @@ export default function TitleDetail() {
       {dialog === 'history' && <HistoryDialog title={title} onClose={() => setDialog(null)} />}
       {dialog === 'match' && (
         <MatchDialog
+          kind={title.kind}
           initialTerm={title.name}
           currentId={title.metadataSource && title.externalId ? `${title.metadataSource}:${title.externalId}` : undefined}
           onClose={() => setDialog(null)}

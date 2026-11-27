@@ -17,6 +17,11 @@ public class AddTitleOptions
     public MonitorOption Monitor { get; set; } = MonitorOption.All;
     public bool SearchForMissing { get; set; }
     public DateOnly? FirstIssueDate { get; set; }
+
+    /// <summary>eBooks: add/monitor just this one book of the author (by metadata id, falling back to its title).</summary>
+    public string? BookExternalId { get; set; }
+
+    public string? BookTitle { get; set; }
 }
 
 public record RenamePreview(int IssueFileId, int IssueId, string Issue, string ExistingPath, string NewPath);
@@ -36,6 +41,8 @@ public interface ITitleManagementService
     Task<Title> Match(int titleId, string source, string externalId, bool useMetadataName, CancellationToken ct);
 
     void Unmatch(int titleId);
+
+    Issue? FindBook(int titleId, string? externalId, string? bookTitle);
 }
 
 public class TitleManagementService(
@@ -56,13 +63,32 @@ public class TitleManagementService(
             title.Path = Path.Combine(rootFolder, names.TitleFolder(title));
         }
 
-        if (title.MetadataSource != null && title.ExternalId != null &&
-            titles.All().Any(t => t.MetadataSource == title.MetadataSource && t.ExternalId == title.ExternalId))
+        var existing = title.MetadataSource != null && title.ExternalId != null
+            ? titles.All().FirstOrDefault(t => t.MetadataSource == title.MetadataSource && t.ExternalId == title.ExternalId)
+            : null;
+        if (existing != null)
         {
-            throw new ArgumentException($"{title.Name} is already in your library");
+            if (options.BookExternalId == null && options.BookTitle == null)
+            {
+                throw new ArgumentException($"{title.Name} is already in your library");
+            }
+
+            // Adding another book by an author we already have: just monitor that book.
+            await refresh.Refresh(existing.Id, ct);
+            var book = FindBook(existing.Id, options.BookExternalId, options.BookTitle)
+                       ?? throw new ArgumentException($"Couldn't find that book in {existing.Name}'s book list");
+            issues.SetMonitored([book.Id], true);
+            if (!existing.Monitored)
+            {
+                existing.Monitored = true;
+                titleRepo.Update(existing);
+            }
+
+            return titles.Get(existing.Id)!;
         }
 
-        title.Monitored = options.Monitor != MonitorOption.None;
+        var onlyOneBook = options.BookExternalId != null || options.BookTitle != null;
+        title.Monitored = options.Monitor != MonitorOption.None || onlyOneBook;
         var added = titles.Add(title, rootFolder);
         Directory.CreateDirectory(added.Path);
 
@@ -76,8 +102,22 @@ public class TitleManagementService(
             throw new TitleAddedWithWarningException(added, $"Added, but couldn't load issues: {e.Message}");
         }
 
-        ApplyMonitoring(added.Id, options.Monitor);
+        ApplyMonitoring(added.Id, onlyOneBook ? MonitorOption.None : options.Monitor);
+        if (onlyOneBook && FindBook(added.Id, options.BookExternalId, options.BookTitle) is { } chosen)
+        {
+            issues.SetMonitored([chosen.Id], true);
+        }
+
         return titles.Get(added.Id)!;
+    }
+
+    public Issue? FindBook(int titleId, string? externalId, string? bookTitle)
+    {
+        var all = issues.GetByTitle(titleId);
+        var key = bookTitle == null ? null : Parser.BookMatcher.Normalize(bookTitle);
+        return all.FirstOrDefault(i => externalId != null && i.ExternalId == externalId)
+               ?? (key == null ? null : all.FirstOrDefault(i => Parser.BookMatcher.Normalize(i.Number) == key))
+               ?? (key == null ? null : all.FirstOrDefault(i => Parser.BookMatcher.Normalize(i.Number.Split(':')[0]) == Parser.BookMatcher.Normalize(bookTitle!.Split(':')[0])));
     }
 
     private void ApplyMonitoring(int titleId, MonitorOption option)

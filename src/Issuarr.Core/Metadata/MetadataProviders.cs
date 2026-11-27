@@ -19,6 +19,9 @@ public class SeriesInfo
     public string? Overview { get; set; }
     public string? CoverUrl { get; set; }
     public string? SiteUrl { get; set; }
+
+    /// <summary>Magazines: release frequency when the source knows it (e.g. "Monthly").</summary>
+    public string? Frequency { get; set; }
 }
 
 public class IssueInfo
@@ -31,10 +34,15 @@ public class IssueInfo
     public string? CoverUrl { get; set; }
 }
 
+/// <summary>
+/// A metadata source. For comics and magazines a "series" is the title and its issues are
+/// issues; for eBooks the series is an author and the "issues" are their books.
+/// </summary>
 public interface IMetadataProvider
 {
     string Source { get; }
     string DisplayName { get; }
+    IReadOnlyList<Titles.TitleKind> Kinds { get; }
     bool IsConfigured { get; }
     Task<List<SeriesInfo>> Search(string query, CancellationToken ct);
     Task<SeriesInfo> GetSeries(string externalId, CancellationToken ct);
@@ -53,6 +61,7 @@ public partial class ComicVine(IHttpClientFactory http, IConfigService config) :
 
     public string Source => "comicvine";
     public string DisplayName => "ComicVine";
+    public IReadOnlyList<Titles.TitleKind> Kinds => [Titles.TitleKind.Comic, Titles.TitleKind.Magazine];
     public bool IsConfigured => config.ComicVineApiKey.Length > 0;
 
     public async Task<List<SeriesInfo>> Search(string query, CancellationToken ct)
@@ -178,6 +187,7 @@ public class Metron(IHttpClientFactory http, IConfigService config) : IMetadataP
 
     public string Source => "metron";
     public string DisplayName => "Metron";
+    public IReadOnlyList<Titles.TitleKind> Kinds => [Titles.TitleKind.Comic];
     public bool IsConfigured => config.MetronUsername.Length > 0 && config.MetronPassword.Length > 0;
 
     public async Task<List<SeriesInfo>> Search(string query, CancellationToken ct)

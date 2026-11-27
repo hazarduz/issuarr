@@ -87,6 +87,12 @@ public class CompletedDownloadService(
         }
 
         var title = t.TitleId is { } id ? titles.Get(id) : FindTitle(t.Item.Title);
+        if (title?.Kind == TitleKind.Book && candidates.Count > 1)
+        {
+            // Releases often bundle EPUB + MOBI + PDF; keep the best format for the profile.
+            var profileForBook = QualityProfiles.Get(title.QualityProfile);
+            candidates = candidates.OrderBy(f => profileForBook.Rank(f.Extension.TrimStart('.'))).ThenByDescending(f => f.Length).Take(1).ToList();
+        }
         if (title == null)
         {
             tracked.SetState(t, TrackedState.ImportFailed, $"Couldn't match \"{t.Item.Title}\" to a title in your library");
@@ -101,7 +107,7 @@ public class CompletedDownloadService(
 
         foreach (var file in candidates)
         {
-            var issue = MatchIssue(file, t, candidates.Count, titleIssues);
+            var issue = MatchIssue(file, t, candidates.Count, titleIssues, title);
             if (issue == null)
             {
                 messages.Add($"{file.Name}: couldn't tell which issue this is");
@@ -197,8 +203,21 @@ public class CompletedDownloadService(
         }
     }
 
-    private Issue? MatchIssue(FileInfo file, TrackedDownload t, int fileCount, List<Issue> titleIssues)
+    private Issue? MatchIssue(FileInfo file, TrackedDownload t, int fileCount, List<Issue> titleIssues, Title title)
     {
+        if (title.Kind == TitleKind.Book)
+        {
+            var n = BookMatcher.Normalize(Path.GetFileNameWithoutExtension(file.Name));
+            var byBookName = BookMatcher.MatchBook(n, titleIssues) ?? BookMatcher.MatchBook(BookMatcher.Normalize(t.SourceTitle), titleIssues);
+            if (byBookName != null)
+            {
+                return byBookName;
+            }
+
+            // An ebook download often has several formats of the same book; trust the grab.
+            return t.IssueIds.Count == 1 ? titleIssues.FirstOrDefault(i => i.Id == t.IssueIds[0]) : null;
+        }
+
         var parsed = ReleaseParser.Parse(file.Name);
         var byName = parsed == null ? null : DecisionMaker.MatchIssue(parsed, titleIssues);
         if (byName != null)
@@ -218,6 +237,12 @@ public class CompletedDownloadService(
 
     private Title? FindTitle(string downloadTitle)
     {
+        var all = titles.All();
+        if (BookMatcher.Match(downloadTitle, all, t => issues.GetByTitle(t.Id)) is { } book)
+        {
+            return book.Title;
+        }
+
         var parsed = ReleaseParser.Parse(downloadTitle);
         return parsed == null ? null : titles.FindByReleaseTitle(parsed.TitleName);
     }

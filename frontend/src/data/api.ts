@@ -210,6 +210,23 @@ export interface LookupResult {
   siteUrl?: string;
   existingTitleId?: number;
   existingSlug?: string;
+  frequency?: string;
+  kind?: Title['kind'];
+}
+
+export interface BookResult {
+  source: string;
+  workId: string;
+  title: string;
+  author?: string;
+  authorId?: string;
+  year?: number;
+  coverUrl?: string;
+  overview?: string;
+  siteUrl?: string;
+  authorTitleId?: number;
+  authorSlug?: string;
+  inLibrary: boolean;
 }
 
 export interface QualityProfile {
@@ -406,8 +423,9 @@ export const api = {
     return request<ApiTitle>(`/title/${t.id}`, json('PUT', { ...t, id: Number(t.id), issues: undefined, serverStats: undefined }));
   },
   deleteTitle: (id: string | number, deleteFiles: boolean) => request(`/title/${id}?deleteFiles=${deleteFiles}`, { method: 'DELETE' }),
-  lookup: (term: string, source?: string) =>
-    request<LookupResult[]>(`/title/lookup?term=${encodeURIComponent(term)}${source ? `&source=${source}` : ''}`),
+  lookup: (term: string, source?: string, kind: Title['kind'] = 'comic') =>
+    request<LookupResult[]>(`/title/lookup?term=${encodeURIComponent(term)}&kind=${kind}${source ? `&source=${source}` : ''}`),
+  lookupBook: (term: string, source?: string) => request<BookResult[]>(`/title/lookup/book?term=${encodeURIComponent(term)}${source ? `&source=${source}` : ''}`),
   matchTitle: async (id: string | number, source: string, externalId: string, useMetadataName: boolean) => {
     if (!init) throw new DemoModeError();
     const res = await fetch(`${init.apiRoot}/title/${id}/match`, {
@@ -437,7 +455,10 @@ export const api = {
       throw new Error(b.detail ?? b.message ?? b.title ?? `Add failed: ${res.status}`);
     }
     const title = toTitle((await res.json()) as ApiTitle);
-    titles.push(title);
+    // Adding a book by an author we already have returns that author: replace, don't duplicate.
+    const existing = titles.findIndex((t) => t.id === title.id);
+    if (existing >= 0) titles[existing] = title;
+    else titles.push(title);
     return { title, warning: res.headers.get('X-Issuarr-Warning') || undefined };
   },
   /** Fetch a title and add (or refresh) it in the in-memory library. */

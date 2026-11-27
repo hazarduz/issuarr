@@ -5,7 +5,7 @@
 <h1 align="center">Issuarr</h1>
 <p align="center"><b>Never miss an issue.</b></p>
 
-Issuarr is a self-hosted manager for magazines and comics, built in the spirit of Sonarr and Radarr. Tell it which titles you follow and it keeps track of every issue: what's out, what you have and what's missing. It searches your indexers through Prowlarr, sends releases to your download client (qBittorrent, Deluge, Transmission, SABnzbd and more), then renames and files each issue into a clean `Title/Issue` library ready for Komga, Kavita or any OPDS reader.
+Issuarr is a self-hosted manager for magazines, comics and eBooks, built in the spirit of Sonarr and Radarr. Tell it which titles you follow and it keeps track of every issue: what's out, what you have and what's missing. It searches your indexers through Prowlarr, sends releases to your download client (qBittorrent, Deluge, Transmission, SABnzbd and more), then renames and files each issue into a clean `Title/Issue` library ready for Komga, Kavita or any OPDS reader.
 
 Magazines and comics have always been an afterthought in the *arr world. Issuarr treats them as first-class: one app, one library, every issue accounted for.
 
@@ -22,7 +22,9 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 
 ## What it does
 
-- **Add titles:** search ComicVine or Metron for comic series (with covers and full issue lists), or add a magazine by how often it comes out and let Issuarr work out the issues
+- **Comics:** search ComicVine or Metron for series, with covers and full issue lists
+- **Magazines:** look them up on Wikidata (publisher, frequency, cover) or ComicVine, and Issuarr works out the issues from how often they come out
+- **eBooks:** follow authors or add single books from Open Library or Google Books; EPUB, AZW3, MOBI and PDF
 - **Library import:** scan an existing collection; each folder becomes a title, each file an issue
 - **Manual matching:** link imported titles to the right ComicVine/Metron series (during import or later from the title page); your files stay on their issues and the missing ones are filled in
 - **Indexers:** Newznab, Torznab, or Prowlarr (search all its indexers at once)
@@ -40,7 +42,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 1. **Settings → Media Management:** add a root folder (where your comics/magazines live).
 2. **Settings → Indexers:** add Prowlarr, or individual Newznab/Torznab indexers.
 3. **Settings → Download Clients:** add your client. Use a category/label like `issuarr`.
-4. **Settings → General:** add a free [ComicVine API key](https://comicvine.gamespot.com/api/) (or Metron login) to search for comics, and turn on login.
+4. **Settings → General:** add a free [ComicVine API key](https://comicvine.gamespot.com/api/) (or Metron login) to search for comics, choose your magazine and eBook sources (they work without keys), and turn on login.
 5. **Add New** or **Library Import**.
 
 ## Quick start (Docker)
@@ -140,7 +142,8 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/filesystem?path=` | Browse server folders (used by the folder picker) |
 | GET | `/api/v1/parse?title=` | Show how a release name is parsed |
 | GET / POST / PUT / DELETE | `/api/v1/indexer` · `/downloadclient` · `/notification` | Providers (+ `/schema`, `/test`) |
-| GET | `/api/v1/title/lookup?term=&source=` | Search ComicVine / Metron |
+| GET | `/api/v1/title/lookup?term=&kind=&source=` | Search series (`comic`), magazines (`magazine`) or authors (`book`) |
+| GET | `/api/v1/title/lookup/book?term=` | Search individual books |
 | POST / DELETE | `/api/v1/title/{id}/match` | Match a title to a series `{ source, externalId, useMetadataName }` / unmatch |
 | GET / POST | `/api/v1/release?titleId=&issueId=` | Interactive search / grab a release |
 | POST / GET | `/api/v1/command` | Run jobs: `RefreshTitle`, `RefreshAll`, `TitleSearch`, `IssueSearch`, `MissingSearch`, `RssSync`, `ProcessDownloads`, `RenameTitle` |

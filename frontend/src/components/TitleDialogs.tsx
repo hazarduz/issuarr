@@ -67,7 +67,7 @@ export function EditTitleDialog({ title, onClose }: { title: Title; onClose: () 
             <option key={p.name}>{p.name}</option>
           ))}
         </select>
-        {title.kind === 'magazine' && !title.metadataSource && (
+        {title.kind === 'magazine' && (!title.metadataSource || title.metadataSource === 'wikidata') && (
           <>
             <label>Comes out</label>
             <select className="input" value={t.frequency} onChange={(e) => setT({ ...t, frequency: e.target.value })}>

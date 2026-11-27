@@ -203,6 +203,7 @@ public class ScheduleAndImportFixture
 
         public string Source => "fake";
         public string DisplayName => "Fake";
+        public IReadOnlyList<TitleKind> Kinds => [TitleKind.Comic];
         public bool IsConfigured => true;
         public Task<List<SeriesInfo>> Search(string query, CancellationToken ct) => Task.FromResult(new List<SeriesInfo>());
         public Task<SeriesInfo> GetSeries(string externalId, CancellationToken ct) => Task.FromResult(new SeriesInfo { Name = "Neon Alley", Publisher = "Northlight", Year = 2025 });

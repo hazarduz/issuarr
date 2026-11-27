@@ -17,6 +17,7 @@ public class TitleController(
     IEnumerable<IMetadataProvider> metadata,
     IConfigService config,
     ICommandService commands,
+    IEnumerable<IBookSearch> bookSearch,
     IIssueFileRepository files,
     ResourceMapper mapper) : ControllerBase
 {
@@ -39,9 +40,21 @@ public class TitleController(
 
     /// <summary>Search the metadata source (ComicVine or Metron) for series to add.</summary>
     [HttpGet("lookup")]
-    public async Task<ActionResult<object>> Lookup([FromQuery] string term, CancellationToken ct, [FromQuery] string? source = null)
+    public async Task<ActionResult<object>> Lookup([FromQuery] string term, CancellationToken ct, [FromQuery] string? source = null, [FromQuery] TitleKind kind = TitleKind.Comic)
     {
-        var provider = metadata.FirstOrDefault(m => m.Source == (source ?? config.MetadataSource)) ?? metadata.First();
+        var configured = kind switch
+        {
+            TitleKind.Book => config.BookMetadataSource,
+            TitleKind.Magazine => config.MagazineMetadataSource,
+            _ => config.MetadataSource,
+        };
+        if (source == null && configured == "none")
+        {
+            return new List<object>();
+        }
+
+        var provider = metadata.FirstOrDefault(m => m.Source == (source ?? configured) && m.Kinds.Contains(kind))
+                       ?? metadata.FirstOrDefault(m => m.Kinds.Contains(kind))!;
         try
         {
             var results = await provider.Search(term, ct);
@@ -49,7 +62,7 @@ public class TitleController(
                 .ToDictionary(t => t.ExternalId!, t => t);
             return results.Select(r => new
             {
-                r.Source, r.ExternalId, r.Name, r.Year, r.Publisher, r.IssueCount, r.Overview, r.CoverUrl, r.SiteUrl,
+                r.Source, r.ExternalId, r.Name, r.Year, r.Publisher, r.IssueCount, r.Overview, r.CoverUrl, r.SiteUrl, r.Frequency, kind,
                 existingTitleId = existing.GetValueOrDefault(r.ExternalId)?.Id,
                 existingSlug = existing.GetValueOrDefault(r.ExternalId)?.Slug,
             }).ToList();
@@ -61,6 +74,39 @@ public class TitleController(
         catch (HttpRequestException e)
         {
             return BadRequest(new { message = $"Couldn't reach {provider.DisplayName}: {e.Message}" });
+        }
+    }
+
+    /// <summary>Search for individual books (Add New → eBook).</summary>
+    [HttpGet("lookup/book")]
+    public async Task<ActionResult<object>> LookupBook([FromQuery] string term, CancellationToken ct, [FromQuery] string? source = null)
+    {
+        var search = bookSearch.FirstOrDefault(b => b.Source == (source ?? config.BookMetadataSource)) ?? bookSearch.First();
+        try
+        {
+            var results = await search.SearchBooks(term, ct);
+            var authors = titles.All().Where(t => t.Kind == TitleKind.Book && t.MetadataSource == search.Source && t.ExternalId != null)
+                .ToDictionary(t => t.ExternalId!, StringComparer.OrdinalIgnoreCase);
+            return results.Select(b =>
+            {
+                var author = b.AuthorId != null ? authors.GetValueOrDefault(b.AuthorId) : null;
+                var book = author != null ? management.FindBook(author.Id, b.WorkId, b.Title) : null;
+                return new
+                {
+                    b.Source, b.WorkId, b.Title, b.Author, b.AuthorId, b.Year, b.CoverUrl, b.Overview, b.SiteUrl,
+                    authorTitleId = author?.Id,
+                    authorSlug = author?.Slug,
+                    inLibrary = book != null && (book.Monitored || book.IssueFileId != null),
+                };
+            }).ToList();
+        }
+        catch (MetadataException e)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+        catch (HttpRequestException e)
+        {
+            return BadRequest(new { message = $"Couldn't reach {search.Source}: {e.Message}" });
         }
     }
 
@@ -91,6 +137,8 @@ public class TitleController(
             Monitor = Enum.TryParse<MonitorOption>(resource.Monitor, true, out var m) ? m : MonitorOption.All,
             SearchForMissing = resource.SearchForMissing,
             FirstIssueDate = DateOnly.TryParse(resource.FirstIssueDate, out var d) ? d : null,
+            BookExternalId = resource.BookExternalId,
+            BookTitle = resource.BookTitle,
         };
 
         Title added;
@@ -109,7 +157,15 @@ public class TitleController(
             return ValidationProblem(e.Message);
         }
 
-        if (options.SearchForMissing && options.Monitor != MonitorOption.None)
+        var oneBook = options.BookExternalId != null || options.BookTitle != null;
+        if (options.SearchForMissing && oneBook)
+        {
+            if (management.FindBook(added.Id, options.BookExternalId, options.BookTitle) is { IssueFileId: null } book)
+            {
+                commands.Enqueue(CommandNames.IssueSearch, added.Id, [book.Id]);
+            }
+        }
+        else if (options.SearchForMissing && options.Monitor != MonitorOption.None)
         {
             commands.Enqueue(CommandNames.TitleSearch, added.Id);
         }
