@@ -396,6 +396,27 @@ const themes = {
   sepia: { body: { background: '#f4ecd8', color: '#5b4636' }, a: { color: '#9a3412' } },
 };
 
+/**
+ * Cover and full-page illustration pages are usually one small image at its original size.
+ * Scale those up to fill the page, centred across both pages of a spread.
+ */
+function fitImagePages(contents: { document: Document }) {
+  const doc = contents.document;
+  const body = doc.body;
+  if (!body) return;
+  const images = body.querySelectorAll('img, svg, image');
+  const text = (body.textContent ?? '').replace(/\s+/g, '');
+  if (images.length === 0 || images.length > 2 || text.length > 40) return;
+  const style = doc.createElement('style');
+  style.textContent = `
+    body > * { column-span: all; }
+    body { text-align: center; }
+    img, svg { display: block; margin: 0 auto !important; height: calc(100vh - 8px) !important; width: auto !important; max-width: 100% !important; object-fit: contain; }
+    div, p, section, figure { margin: 0 !important; padding: 0 !important; text-indent: 0 !important; }
+  `;
+  doc.head.appendChild(style);
+}
+
 function EpubReader({ info }: { info: ReadInfo }) {
   const host = useRef<HTMLDivElement>(null);
   const rendition = useRef<Rendition | null>(null);
@@ -415,6 +436,7 @@ function EpubReader({ info }: { info: ReadInfo }) {
     book.current = b;
     const r = b.renderTo(host.current!, { width: '100%', height: '100%', flow: 'paginated', spread: 'auto', allowScriptedContent: false });
     rendition.current = r;
+    r.hooks.content.register(fitImagePages);
     Object.entries(themes).forEach(([name, styles]) => r.themes.register(name, styles));
     r.themes.select(theme);
     r.themes.fontSize(`${fontSize}%`);
