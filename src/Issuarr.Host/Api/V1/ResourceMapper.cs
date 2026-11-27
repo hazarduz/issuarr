@@ -47,7 +47,8 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
         var read = includeIssues ? progress.PercentByIssue(titleIssues.Where(i => i.IssueFileId != null).Select(i => i.Id)) : null;
         var mapped = titleIssues.Select(i => Issue(i, title, fileMap, read)).ToList();
         var aired = mapped.Where(i => i.Status != IssueStatus.Unaired).ToList();
-        var monitoredAired = aired.Count(i => i.Monitored);
+        // Like Sonarr: the total is aired issues you want (monitored) plus any you already have.
+        var wanted = aired.Count(i => i.Monitored || i.File != null);
         var next = mapped.Where(i => i.Status == IssueStatus.Unaired).MinBy(i => i.ReleaseDate);
 
         return new TitleResource
@@ -74,7 +75,7 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             Cover = title.CustomCover != null ? $"/api/v1/mediacover/{title.Id}?v={Path.GetFileNameWithoutExtension(title.CustomCover)}" : title.CoverUrl,
             LastRefreshed = title.LastRefreshed,
             Statistics = new TitleStatistics(
-                IssueCount: monitoredAired > 0 ? monitoredAired : aired.Count,
+                IssueCount: wanted > 0 ? wanted : aired.Count,
                 IssueFileCount: aired.Count(i => i.File != null),
                 MissingCount: aired.Count(i => i.Status == IssueStatus.Missing),
                 SizeOnDisk: mapped.Sum(i => i.File?.Size ?? 0),

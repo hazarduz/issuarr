@@ -7,6 +7,9 @@ import {
   FolderOpen,
   HardDrive,
   ImagePlus,
+  LayoutGrid,
+  List,
+  Rows3,
   History,
   Link2,
   Loader2,
@@ -19,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Cover } from '../components/Cover';
+import { Cover, IssueCover } from '../components/Cover';
 import { CoverDialog } from '../components/CoverDialog';
 import { ItemDeleteDialog, ItemMatchDialog } from '../components/ItemDialogs';
 import { MatchDialog } from '../components/MatchDialog';
@@ -32,6 +35,9 @@ import { api, isConnected } from '../data/api';
 import { itemWord, kindLabel, parseDate, sourceName, stats, titles, type Issue } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
+type IssueView = 'list' | 'detailed' | 'grid';
+const readable = ['EPUB', 'PDF', 'CBZ', 'CBR', 'CB7'];
+
 type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | 'cover' | { search: Issue | null } | { matchItem: Issue } | { deleteItem: Issue };
 
 export default function TitleDetail() {
@@ -43,6 +49,21 @@ export default function TitleDetail() {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const navigate = useNavigate();
+  const [view, setViewState] = useState<IssueView>(() => {
+    try {
+      return (localStorage.getItem('issuarr-issue-view') as IssueView) || 'list';
+    } catch {
+      return 'list';
+    }
+  });
+  const setView = (v: IssueView) => {
+    setViewState(v);
+    try {
+      localStorage.setItem('issuarr-issue-view', v);
+    } catch {
+      /* private mode */
+    }
+  };
 
   const byYear = useMemo(() => {
     const g = new Map<string, Issue[]>();
@@ -118,6 +139,185 @@ export default function TitleDetail() {
 
   const needsLive = (d: Dialog) => () => (live ? setDialog(d) : toast('Not available with sample data. Run the Issuarr backend to use this.', 'error'));
 
+  const openYear = (d: string) => title.kind !== 'book' && setOpen((o) => ({ ...o, [d.slice(0, 4)]: true }));
+  const canRead = (i: Issue) => !!i.file && i.serverId != null && live;
+
+  const readPill = (i: Issue) =>
+    i.readPercent == null ? null : i.readPercent >= 98 ? (
+      <span className="pill ok" title="Finished">
+        ✓ Read
+      </span>
+    ) : (
+      <span className="pill accent" title="Reading progress">
+        {Math.round(i.readPercent)}%
+      </span>
+    );
+
+  const actions = (i: Issue, compact = false) => (
+    <div className="issue-actions" style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+      {!compact && canRead(i) && (
+        <button
+          className="icon-btn read-btn"
+          style={{ width: 30, height: 30 }}
+          title={readable.includes(i.file!.format) ? (i.readPercent ? 'Continue reading' : 'Read') : `Download ${i.file!.format}`}
+          onClick={() => navigate(`/read/${i.serverId}`)}
+        >
+          <BookOpenText size={15} />
+        </button>
+      )}
+      <button className="icon-btn" style={{ width: 30, height: 30 }} title={`Match or edit this ${itemWord(title.kind)}`} onClick={needsLive({ matchItem: i })}>
+        <Link2 size={15} />
+      </button>
+      <button className="icon-btn danger-hover" style={{ width: 30, height: 30 }} title={`Delete this ${itemWord(title.kind)}`} onClick={needsLive({ deleteItem: i })}>
+        <Trash2 size={15} />
+      </button>
+      <button
+        className="icon-btn"
+        style={{ width: 30, height: 30 }}
+        title="Automatic search"
+        onClick={() => run(`issue-${i.id}`, 'IssueSearch', i.serverId != null ? [i.serverId] : [], `Searching for ${title.name} ${i.number}…`)}
+      >
+        {busy[`issue-${i.id}`] ? <Loader2 size={15} className="spin-icon" /> : <Search size={15} />}
+      </button>
+      {!compact && (
+        <button className="icon-btn" style={{ width: 30, height: 30 }} title="Interactive search" onClick={needsLive({ search: i })}>
+          <User size={15} />
+        </button>
+      )}
+    </div>
+  );
+
+  const listTable = (issues: Issue[]) => (
+    <div className="table-wrap" style={{ borderTop: '1px solid var(--border)' }}>
+      <table className="table">
+        <thead>
+          <tr>
+            <th style={{ width: 40 }} />
+            <th>{title.kind === 'book' ? 'Book' : 'Issue'}</th>
+            <th>{title.kind === 'book' ? 'Published' : 'Release Date'}</th>
+            <th>File</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th style={{ width: 180 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {issues.map((i) => (
+            <tr key={i.id}>
+              <td>
+                <MonitorToggle on={i.monitored} onClick={() => setIssuesMonitored([i], !i.monitored)} />
+              </td>
+              <td>
+                <span style={{ fontWeight: 600 }}>{i.number}</span>
+                {i.title && <span className="muted"> — {i.title}</span>}
+              </td>
+              <td className="num muted">
+                <ReleaseDateCell title={title} issue={i} onChanged={openYear} />
+              </td>
+              <td className="muted mono" style={{ fontSize: 12 }}>
+                {i.file ? (
+                  <>
+                    {i.file.name} <span className="pill">{i.file.format}</span>
+                  </>
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td className="num muted">{i.file?.size ?? ''}</td>
+              <td>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <StatusPill status={i.status} />
+                  {readPill(i)}
+                </div>
+              </td>
+              <td>{actions(i)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const detailedList = (issues: Issue[]) => (
+    <div className="issue-detailed" style={{ borderTop: '1px solid var(--border)' }}>
+      {issues.map((i) => (
+        <div className={`issue-row ${i.file ? '' : 'no-file'}`} key={i.id}>
+          <MonitorToggle on={i.monitored} onClick={() => setIssuesMonitored([i], !i.monitored)} />
+          <button className="issue-row-cover" title={canRead(i) ? 'Read' : undefined} onClick={() => canRead(i) && navigate(`/read/${i.serverId}`)} disabled={!canRead(i)}>
+            <IssueCover title={title} issue={i} size="sm" />
+          </button>
+          <div className="issue-row-main">
+            <div className="issue-row-name">
+              <span style={{ fontWeight: 600 }}>{i.number}</span>
+              {i.title && <span className="muted"> — {i.title}</span>}
+            </div>
+            <div className="issue-row-sub">
+              <ReleaseDateCell title={title} issue={i} onChanged={openYear} />
+              {i.file && (
+                <>
+                  <span className="dot-sep">·</span>
+                  <span className="pill">{i.file.format}</span>
+                  <span>{i.file.size}</span>
+                </>
+              )}
+            </div>
+            {i.file && (
+              <div className="issue-row-file mono" title={i.file.name}>
+                {i.file.name}
+              </div>
+            )}
+            {i.readPercent != null && i.readPercent > 0 && i.readPercent < 98 && (
+              <div className="issue-row-progress" title={`${Math.round(i.readPercent)}% read`}>
+                <span style={{ width: `${i.readPercent}%` }} />
+              </div>
+            )}
+          </div>
+          <div className="issue-row-status">
+            <StatusPill status={i.status} />
+            {readPill(i)}
+          </div>
+          {actions(i)}
+        </div>
+      ))}
+    </div>
+  );
+
+  const grid = (issues: Issue[]) => (
+    <div className="issue-grid">
+      {issues.map((i) => (
+        <div className={`issue-card ${i.file ? '' : 'no-file'}`} key={i.id}>
+          <button className="issue-card-cover" title={canRead(i) ? (i.readPercent ? 'Continue reading' : 'Read') : undefined} onClick={() => canRead(i) && navigate(`/read/${i.serverId}`)} disabled={!canRead(i)}>
+            <IssueCover title={title} issue={i} />
+            {canRead(i) && (
+              <span className="shelf-play">
+                <BookOpenText size={24} />
+              </span>
+            )}
+            <span className="issue-card-badges">
+              {i.status !== 'downloaded' ? <StatusPill status={i.status} /> : <span />}
+              {readPill(i)}
+            </span>
+            {i.readPercent != null && i.readPercent > 0 && i.readPercent < 98 && (
+              <span className="shelf-progress">
+                <span style={{ width: `${i.readPercent}%` }} />
+              </span>
+            )}
+          </button>
+          <div className="issue-card-meta">
+            <div className="issue-card-name" title={i.title ? `${i.number} — ${i.title}` : i.number}>
+              {i.number}
+            </div>
+            <div className="issue-card-sub">
+              <MonitorToggle on={i.monitored} onClick={() => setIssuesMonitored([i], !i.monitored)} />
+              <ReleaseDateCell title={title} issue={i} onChanged={openYear} />
+            </div>
+            {actions(i, true)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <>
       <Toolbar>
@@ -133,6 +333,9 @@ export default function TitleDetail() {
         <Tool icon={Pencil} label="Edit" onClick={needsLive('edit')} />
         <Tool icon={Trash2} label="Delete" onClick={needsLive('delete')} />
         <Grow />
+        <Tool icon={List} label="List" on={view === 'list'} onClick={() => setView('list')} />
+        <Tool icon={Rows3} label="Detailed" on={view === 'detailed'} onClick={() => setView('detailed')} />
+        <Tool icon={LayoutGrid} label="Grid" on={view === 'grid'} onClick={() => setView('grid')} />
       </Toolbar>
 
       <section className="hero">
@@ -255,95 +458,7 @@ export default function TitleDetail() {
                 </span>
                 <ChevronDown size={20} className={`chev ${isOpen ? 'open' : ''}`} style={{ marginLeft: 0 }} />
               </div>
-              {isOpen && (
-                <div className="table-wrap" style={{ borderTop: '1px solid var(--border)' }}>
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: 40 }} />
-                        <th>{title.kind === 'book' ? 'Book' : 'Issue'}</th>
-                        <th>{title.kind === 'book' ? 'Published' : 'Release Date'}</th>
-                        <th>File</th>
-                        <th>Size</th>
-                        <th>Status</th>
-                        <th style={{ width: 180 }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {issues.map((i) => (
-                        <tr key={i.id}>
-                          <td>
-                            <MonitorToggle on={i.monitored} onClick={() => setIssuesMonitored([i], !i.monitored)} />
-                          </td>
-                          <td>
-                            <span style={{ fontWeight: 600 }}>{i.number}</span>
-                            {i.title && <span className="muted"> — {i.title}</span>}
-                          </td>
-                          <td className="num muted">
-                            <ReleaseDateCell title={title} issue={i} onChanged={(d) => title.kind !== 'book' && setOpen((o) => ({ ...o, [d.slice(0, 4)]: true }))} />
-                          </td>
-                          <td className="muted mono" style={{ fontSize: 12 }}>
-                            {i.file ? (
-                              <>
-                                {i.file.name} <span className="pill">{i.file.format}</span>
-                              </>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                          <td className="num muted">{i.file?.size ?? ''}</td>
-                          <td>
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                              <StatusPill status={i.status} />
-                              {i.readPercent != null &&
-                                (i.readPercent >= 98 ? (
-                                  <span className="pill ok" title="Finished">
-                                    ✓ Read
-                                  </span>
-                                ) : (
-                                  <span className="pill accent" title="Reading progress">
-                                    {Math.round(i.readPercent)}%
-                                  </span>
-                                ))}
-                            </div>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                              {i.file && i.serverId != null && live && (
-                                <button
-                                  className="icon-btn read-btn"
-                                  style={{ width: 30, height: 30 }}
-                                  title={['EPUB', 'PDF', 'CBZ', 'CBR', 'CB7'].includes(i.file.format) ? (i.readPercent ? 'Continue reading' : 'Read') : `Download ${i.file.format}`}
-                                  onClick={() => navigate(`/read/${i.serverId}`)}
-                                >
-                                  <BookOpenText size={15} />
-                                </button>
-                              )}
-                              <button className="icon-btn" style={{ width: 30, height: 30 }} title={`Match or edit this ${itemWord(title.kind)}`} onClick={needsLive({ matchItem: i })}>
-                                <Link2 size={15} />
-                              </button>
-                              <button className="icon-btn danger-hover" style={{ width: 30, height: 30 }} title={`Delete this ${itemWord(title.kind)}`} onClick={needsLive({ deleteItem: i })}>
-                                <Trash2 size={15} />
-                              </button>
-                              <button
-                                className="icon-btn"
-                                style={{ width: 30, height: 30 }}
-                                title="Automatic search"
-                                onClick={() => run(`issue-${i.id}`, 'IssueSearch', i.serverId != null ? [i.serverId] : [], `Searching for ${title.name} ${i.number}…`)}
-                              >
-                                {busy[`issue-${i.id}`] ? <Loader2 size={15} className="spin-icon" /> : <Search size={15} />}
-                              </button>
-                              <button className="icon-btn" style={{ width: 30, height: 30 }} title="Interactive search" onClick={needsLive({ search: i })}>
-                                <User size={15} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {isOpen && (view === 'grid' ? grid(issues) : view === 'detailed' ? detailedList(issues) : listTable(issues))}
             </div>
           );
         })}

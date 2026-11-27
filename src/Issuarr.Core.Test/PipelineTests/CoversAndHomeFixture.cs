@@ -133,4 +133,86 @@ public class CoversAndHomeFixture
         Assert.That(h2.ContinueReading.Single().Percent, Is.EqualTo(40));
         Assert.That(h2.UpNext, Is.Empty, "a title you're in the middle of isn't also up next");
     }
+
+    /// <summary>A one-page PDF with a red rectangle, built with correct xref offsets.</summary>
+    public static byte[] MinimalPdf()
+    {
+        var content = "1 0 0 rg 20 20 160 220 re f";
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 260] /Contents 4 0 R >>",
+            $"<< /Length {content.Length} >>\nstream\n{content}\nendstream",
+        };
+        var sb = new System.Text.StringBuilder("%PDF-1.4\n");
+        var offsets = new List<int>();
+        for (var n = 0; n < objects.Length; n++)
+        {
+            offsets.Add(sb.Length);
+            sb.Append($"{n + 1} 0 obj\n{objects[n]}\nendobj\n");
+        }
+
+        var xref = sb.Length;
+        sb.Append($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        foreach (var o in offsets)
+        {
+            sb.Append($"{o:D10} 00000 n \n");
+        }
+
+        sb.Append($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        return System.Text.Encoding.ASCII.GetBytes(sb.ToString());
+    }
+
+    [Test]
+    public void renders_and_caches_pdf_covers()
+    {
+        var t = _titles.Add(new Title { Name = "Retro Gamer", Kind = TitleKind.Magazine, Path = _dir }, _dir);
+        var pdf = MinimalPdf();
+        File.WriteAllBytes(Path.Combine(_dir, "0001 - Retro Gamer.pdf"), pdf);
+        var f = _files.Insert(new IssueFile { TitleId = t.Id, RelativePath = "0001 - Retro Gamer.pdf", Format = "PDF", Size = pdf.Length, DateAdded = "x" });
+        _issues.InsertMany([new Issue { TitleId = t.Id, Number = "#1", SortKey = 1, ReleaseDate = "2004-01-01", IssueFileId = f.Id }]);
+        var issueId = _issues.GetByTitle(t.Id).Single().Id;
+
+        var cover = _covers.IssueCover(issueId);
+        Assert.That(cover, Is.Not.Null);
+        Assert.That(cover!.Value.ContentType, Is.EqualTo("image/jpeg"));
+        Assert.That(CoverService.ImageExtension(cover.Value.Data), Is.EqualTo(".jpg"));
+
+        var cached = Path.Combine(_dir, "config", "MediaCover", "issues", $"{f.Id}-{pdf.Length}.jpg");
+        Assert.That(File.Exists(cached), Is.True, "thumbnail cached");
+        Assert.That(_covers.IssueCover(issueId)!.Value.Data, Is.EqualTo(cover.Value.Data));
+        Assert.That(_covers.Candidates(t.Id).Select(c => c.Url), Does.Contain($"/api/v1/read/{issueId}/cover"));
+
+        // A damaged PDF doesn't throw.
+        Assert.That(CoverService.RenderPdfPage(Path.Combine(_dir, "nope.pdf")), Is.Null);
+    }
+
+    [Test]
+    public void shrinks_big_comic_pages_to_cached_thumbnails()
+    {
+        var t = _titles.Add(new Title { Name = "Iron Tide", Kind = TitleKind.Comic, Path = _dir }, _dir);
+        byte[] page;
+        using (var bmp = new SkiaSharp.SKBitmap(2000, 3000))
+        {
+            bmp.Erase(SkiaSharp.SKColors.SteelBlue);
+            using var img = SkiaSharp.SKImage.FromBitmap(bmp);
+            page = img.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100).ToArray();
+        }
+
+        var cbz = Path.Combine(_dir, "1.cbz");
+        using (var z = ZipFile.Open(cbz, ZipArchiveMode.Create))
+        using (var e = z.CreateEntry("001.png").Open())
+        {
+            e.Write(page);
+        }
+
+        var f = _files.Insert(new IssueFile { TitleId = t.Id, RelativePath = "1.cbz", Format = "CBZ", Size = new FileInfo(cbz).Length, DateAdded = "x" });
+        _issues.InsertMany([new Issue { TitleId = t.Id, Number = "#1", SortKey = 1, ReleaseDate = "2026-01-01", IssueFileId = f.Id }]);
+
+        var cover = _covers.IssueCover(_issues.GetByTitle(t.Id).Single().Id)!.Value;
+        using var thumb = SkiaSharp.SKBitmap.Decode(cover.Data);
+        Assert.That(cover.ContentType, Is.EqualTo("image/jpeg"));
+        Assert.That((thumb.Width, thumb.Height), Is.EqualTo((600, 900)));
+    }
 }

@@ -12,7 +12,7 @@ function ItemCover({ item }: { item: ShelfItem }) {
   const [failed, setFailed] = useState(false);
   const title = titles.find((t) => t.id === String(item.titleId));
   const issue = title?.issues.find((i) => i.serverId === item.issueId);
-  const src = issue?.coverUrl ?? (['CBZ', 'CBR', 'CB7', 'EPUB'].includes(item.format) ? covers.issueCoverUrl(item.issueId) : undefined);
+  const src = issue?.coverUrl ?? (['CBZ', 'CBR', 'CB7', 'EPUB', 'PDF'].includes(item.format) ? covers.issueCoverUrl(item.issueId) : undefined);
   if (src && !failed) {
     return (
       <div className="cover has-image">

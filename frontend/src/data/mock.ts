@@ -326,14 +326,15 @@ export const titles: Title[] = seeds.map((s, i) => {
 export function stats(t: Title) {
   const aired = t.issues.filter((i) => i.status !== 'unaired');
   const have = aired.filter((i) => i.status === 'downloaded').length;
-  const monitoredAired = aired.filter((i) => i.monitored).length;
+  // Like Sonarr: the total is aired issues you want (monitored) plus any you already have.
+  const wanted = aired.filter((i) => i.monitored || i.file).length;
   const next = [...t.issues].filter((i) => i.status === 'unaired').sort((a, b) => a.releaseDate.localeCompare(b.releaseDate))[0];
   const sizeMb = t.serverStats
     ? t.serverStats.sizeBytes / 1024 ** 2
     : t.issues.reduce((acc, i) => acc + (i.file ? parseFloat(i.file.size) : 0), 0);
   return {
     have,
-    total: monitoredAired || aired.length,
+    total: wanted || aired.length,
     missing: aired.filter((i) => i.status === 'missing').length,
     next,
     size: sizeMb > 1024 ? `${(sizeMb / 1024).toFixed(1)} GB` : `${sizeMb.toFixed(0)} MB`,

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { covers, isConnected, mediaUrl } from '../data/api';
-import type { Title } from '../data/mock';
+import type { Issue, Title } from '../data/mock';
 
-const fileCoverFormats = ['CBZ', 'CBR', 'CB7', 'EPUB'];
+export const fileCoverFormats = ['CBZ', 'CBR', 'CB7', 'EPUB', 'PDF'];
 
 /** Image sources to try, best first: chosen/metadata cover, then the first file's own cover. */
 function sources(title: Title): string[] {
@@ -50,4 +50,27 @@ export function Cover({ title, issue, size = 'md' }: { title: Title; issue?: str
       </div>
     </div>
   );
+}
+
+/**
+ * One issue's/book's own cover: the metadata cover, else the file's cover (first page, embedded
+ * EPUB cover, or PDF page 1, rendered and cached by the server), else a generated placeholder.
+ */
+export function IssueCover({ title, issue, size = 'md' }: { title: Title; issue: Issue; size?: 'sm' | 'md' }) {
+  const list: string[] = [];
+  if (issue.coverUrl) list.push(mediaUrl(issue.coverUrl)!);
+  if (isConnected() && issue.file && issue.serverId != null && fileCoverFormats.includes(issue.file.format)) list.push(covers.issueCoverUrl(issue.serverId));
+  const key = list.join('|');
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [key]);
+  const [a, b] = title.palette;
+
+  if (index < list.length) {
+    return (
+      <div className={`cover has-image ${title.kind}`} style={{ background: `linear-gradient(155deg, ${a} 0%, ${b} 100%)` }}>
+        <img src={list[index]} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setIndex((i) => i + 1)} />
+      </div>
+    );
+  }
+  return <Cover title={{ ...title, coverUrl: undefined, issues: [] }} issue={issue.number} size={size} />;
 }

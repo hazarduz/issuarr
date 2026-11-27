@@ -36,6 +36,8 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - **Quality profiles:** prefer CBZ or PDF, upgrade until the cutoff, blocklist failed releases and search again
 - **Import:** finished downloads are renamed with your naming format and moved, or hardlinked for torrents; ComicInfo.xml is written into CBZ files
 - **Home page:** Continue Reading, Up Next and Recently Added shelves
+- **Title page views:** switch between List, Detailed (with cover thumbnails) and Grid (a cover wall with status and reading progress); Issuarr remembers your choice
+- **Issue covers:** every issue gets its own cover, including page 1 of PDF magazines, rendered once on the server and cached as a small JPEG (also used by OPDS and the Home shelves)
 - **Covers:** pick a title's cover from metadata, issue covers or the first page of your own files, upload one, or paste an image address
 - **OPDS catalog** at `/opds` for KOReader (Kobo, Kindle, PocketBook…), Panels, Chunky and other reading apps, with page streaming for comics
 - **KOReader sync:** Issuarr is a KOReader progress sync server; reading on your Kobo updates Continue Reading, and devices pick up where each other left off
@@ -173,7 +175,7 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/history` · `/api/v1/blocklist` | History, blocklist |
 | GET / PUT | `/api/v1/config` · `/api/v1/config/host` | Settings |
 | GET | `/api/v1/wanted/cutoff` | Issues that could be upgraded |
-| GET | `/api/v1/read/{issueId}` · `/page/{n}` · `/file` | Reader: info, comic page images, the raw file (`?download=true`) |
+| GET | `/api/v1/read/{issueId}` · `/page/{n}` · `/file` · `/cover` | Reader: info, comic page images, the raw file (`?download=true`), the issue's cover thumbnail |
 | PUT / DELETE | `/api/v1/read/{issueId}/progress` | Save `{ position, percent }` / clear reading progress |
 | GET | `/api/v1/reading/home` | Home shelves: continue reading, up next, recently added |
 | GET / POST / PUT / DELETE | `/api/v1/title/{id}/covers` · `/cover` | Cover candidates / upload (multipart) / from URL `{ url }` / reset |

@@ -60,7 +60,7 @@ public class CoverService(AppFolders folders, ITitleRepository titles, IIssueRep
             }
         }
 
-        // First pages / embedded covers of files on disk. PDFs are rendered in the browser.
+        // First pages / embedded covers of files on disk (PDF page 1 is rendered on the server and cached).
         foreach (var i in all.Where(i => i.IssueFileId != null).Take(40))
         {
             if (!fileMap.TryGetValue(i.IssueFileId!.Value, out var f))
@@ -75,7 +75,7 @@ public class CoverService(AppFolders folders, ITitleRepository titles, IIssueRep
             }
             else if (format == "PDF")
             {
-                list.Add(new("pdf", $"/api/v1/read/{i.Id}/file", $"{i.Number} (page 1)"));
+                list.Add(new("file", $"/api/v1/read/{i.Id}/cover", $"{i.Number} (page 1)"));
             }
         }
 
@@ -164,16 +164,116 @@ public class CoverService(AppFolders folders, ITitleRepository titles, IIssueRep
             return null;
         }
 
+        // Covers are cached as small JPEGs: PDFs are slow to render and comic pages can be multi-MB scans.
+        var dir = Path.Combine(Folder, "issues");
+        var cached = Path.Combine(dir, $"{file.Id}-{file.Size}.jpg");
+        if (File.Exists(cached))
+        {
+            return (File.ReadAllBytes(cached), "image/jpeg");
+        }
+
+        var format = file.Format.ToUpperInvariant();
+        (byte[] Data, string ContentType)? raw;
         try
         {
-            return file.Format.ToUpperInvariant() switch
+            raw = format switch
             {
                 "CBZ" or "CBR" or "CB7" => ComicArchive.Page(path, 0),
                 "EPUB" => EpubCover(path),
+                "PDF" => RenderPdf(path),
                 _ => null,
             };
         }
         catch (Exception e) when (e is IOException or InvalidDataException or InvalidOperationException or System.Xml.XmlException or SharpCompress.Common.ArchiveException)
+        {
+            return null;
+        }
+
+        if (raw == null)
+        {
+            return null;
+        }
+
+        var thumb = format == "PDF" ? raw.Value.Data : Shrink(raw.Value.Data);
+        if (thumb == null)
+        {
+            return raw; // Not an image we can decode (e.g. SVG); serve it as-is, uncached.
+        }
+
+        try
+        {
+            Directory.CreateDirectory(dir);
+            foreach (var stale in Directory.EnumerateFiles(dir, $"{file.Id}-*.jpg"))
+            {
+                File.Delete(stale);
+            }
+
+            File.WriteAllBytes(cached, thumb);
+        }
+        catch (IOException)
+        {
+            // Another request is writing the same thumbnail; ours is still good to return.
+        }
+
+        return (thumb, "image/jpeg");
+    }
+
+    private const int ThumbWidth = 600;
+    private static readonly SemaphoreSlim PdfLock = new(1, 1);
+
+    private static (byte[] Data, string ContentType)? RenderPdf(string path)
+    {
+        // PDFium is single-threaded; render one at a time so a grid of 200 magazines doesn't swamp the CPU.
+        PdfLock.Wait();
+        try
+        {
+            return RenderPdfPage(path) is { } jpg ? (jpg, "image/jpeg") : null;
+        }
+        finally
+        {
+            PdfLock.Release();
+        }
+    }
+
+    /// <summary>Renders the first page of a PDF as a JPEG, or null if it can't be read.</summary>
+    public static byte[]? RenderPdfPage(string path, int width = ThumbWidth)
+    {
+        try
+        {
+            using var pdf = File.OpenRead(path);
+            using var image = new MemoryStream();
+#pragma warning disable CA1416 // Linux, Windows and macOS are all supported by PDFtoImage.
+            PDFtoImage.Conversion.SaveJpeg(image, pdf, 0, leaveOpen: false, password: null,
+                options: new PDFtoImage.RenderOptions(Width: width, WithAspectRatio: true, WithAnnotations: true));
+#pragma warning restore CA1416
+            return image.ToArray();
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // Damaged/encrypted PDFs, or the PDF engine isn't available on this platform.
+            return null;
+        }
+    }
+
+    /// <summary>Scales an image down to at most <see cref="ThumbWidth"/> wide as a JPEG; null if it can't be decoded.</summary>
+    public static byte[]? Shrink(byte[] data, int width = ThumbWidth)
+    {
+        try
+        {
+            using var bitmap = SkiaSharp.SKBitmap.Decode(data);
+            if (bitmap == null)
+            {
+                return null;
+            }
+
+            using var scaled = bitmap.Width > width
+                ? bitmap.Resize(new SkiaSharp.SKImageInfo(width, (int)Math.Round(bitmap.Height * (double)width / bitmap.Width)), new SkiaSharp.SKSamplingOptions(SkiaSharp.SKCubicResampler.Mitchell))
+                : null;
+            using var image = SkiaSharp.SKImage.FromBitmap(scaled ?? bitmap);
+            using var jpg = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 85);
+            return jpg?.ToArray();
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
         {
             return null;
         }

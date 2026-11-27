@@ -17,13 +17,19 @@ COPY src/ src/
 COPY --from=ui /app/frontend/dist frontend/dist
 RUN dotnet publish src/Issuarr.Host/Issuarr.Host.csproj -c Release -o /out --nologo
 
+# Native libraries (SQLite, PDFium, Skia) ship for every OS; keep only the target's.
+FROM --platform=$BUILDPLATFORM build AS prune
+ARG TARGETARCH
+RUN case "$TARGETARCH" in amd64) keep=linux-x64 ;; arm64) keep=linux-arm64 ;; arm) keep=linux-arm ;; *) keep=linux-$TARGETARCH ;; esac \
+ && find /out/runtimes -mindepth 1 -maxdepth 1 -type d ! -name "$keep" -exec rm -rf {} +
+
 # ---- Runtime --------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 LABEL org.opencontainers.image.title="Issuarr" \
       org.opencontainers.image.description="Self-hosted manager for magazines and comics" \
       org.opencontainers.image.source="https://github.com/hazarduz/issuarr"
 WORKDIR /app/issuarr/bin
-COPY --from=build /out ./
+COPY --from=prune /out ./
 
 ENV ISSUARR_DATA=/config
 VOLUME ["/config"]
