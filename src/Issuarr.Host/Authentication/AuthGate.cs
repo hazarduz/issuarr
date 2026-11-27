@@ -38,6 +38,20 @@ public class AuthGate(RequestDelegate next, ConfigFile config)
             return;
         }
 
+        // OPDS clients (e-readers) can't do a login page: they use HTTP Basic or ?apikey=.
+        if (path.Equals("/opds", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/opds/", StringComparison.OrdinalIgnoreCase))
+        {
+            if (IsAllowedWithoutLogin(context) || HasValidApiKey(context) || TryBasic(context))
+            {
+                await next(context);
+                return;
+            }
+
+            context.Response.Headers.WWWAuthenticate = $"Basic realm=\"{config.InstanceName} OPDS\"";
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
         if (PublicPrefixes.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) || IsAllowedWithoutLogin(context))
         {
             await next(context);

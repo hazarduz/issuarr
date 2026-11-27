@@ -7,6 +7,7 @@ import { bootstrap } from './data/api';
 import Activity from './pages/Activity';
 import AddNew from './pages/AddNew';
 import Calendar from './pages/Calendar';
+import Home from './pages/Home';
 import Library from './pages/Library';
 import LibraryImport from './pages/LibraryImport';
 import Settings from './pages/Settings';
@@ -40,7 +41,8 @@ createRoot(document.getElementById('root')!).render(
             }
           />
           <Route element={<Layout />}>
-            <Route index element={<Library />} />
+            <Route index element={<Home />} />
+            <Route path="library" element={<Library />} />
             <Route path="add" element={<AddNew />} />
             <Route path="import" element={<LibraryImport />} />
             <Route path="title/:slug" element={<TitleDetail />} />

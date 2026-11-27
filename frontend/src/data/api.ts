@@ -569,6 +569,59 @@ export const reader = {
   clearProgress: (issueId: number | string) => request(`/read/${issueId}/progress`, { method: 'DELETE' }),
 };
 
+/** Images served by Issuarr itself (custom covers, file pages) need the API key in the URL. */
+export function mediaUrl(url?: string) {
+  if (!url || !init || !url.startsWith('/api/')) return url;
+  return `${init.urlBase}${url}${url.includes('?') ? '&' : '?'}apikey=${init.apiKey}`;
+}
+
+export interface CoverCandidate {
+  source: 'metadata' | 'issue' | 'file' | 'pdf';
+  url: string;
+  label: string;
+}
+
+export interface ShelfItem {
+  issueId: number;
+  titleId: number;
+  titleName: string;
+  titleSlug: string;
+  kind: Title['kind'];
+  number: string;
+  issueTitle?: string;
+  format: string;
+  percent?: number;
+  when?: string;
+}
+
+export const covers = {
+  candidates: (titleId: string | number) => request<CoverCandidate[]>(`/title/${titleId}/covers`),
+  fromUrl: (titleId: string | number, url: string) => request(`/title/${titleId}/cover`, json('PUT', { url })),
+  reset: (titleId: string | number) => request(`/title/${titleId}/cover`, { method: 'DELETE' }),
+  upload: async (titleId: string | number, blob: Blob) => {
+    if (!init) throw new DemoModeError();
+    const form = new FormData();
+    form.append('file', blob, 'cover');
+    const res = await fetch(`${init.apiRoot}/title/${titleId}/cover`, { method: 'POST', headers: { 'X-Api-Key': init.apiKey }, body: form });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.message ?? b.title ?? `Upload failed: ${res.status}`);
+    }
+  },
+  issueCoverUrl: (issueId: number) => mediaUrl(`/api/v1/read/${issueId}/cover`)!,
+};
+
+export const reading = {
+  home: () => request<{ continueReading: ShelfItem[]; upNext: ShelfItem[]; recentlyAdded: ShelfItem[] }>('/reading/home'),
+  markRead: (issueId: number) => request(`/read/${issueId}/progress`, json('PUT', { position: 'end', percent: 100 })),
+  clear: (issueId: number) => request(`/read/${issueId}/progress`, { method: 'DELETE' }),
+};
+
+export function opdsUrl(withKey: boolean) {
+  if (!init) return '';
+  return `${window.location.origin}${init.urlBase}/opds${withKey ? `?apikey=${init.apiKey}` : ''}`;
+}
+
 /** URL of the iCal feed (includes the API key so calendar apps can fetch it). */
 export function calendarFeedUrl() {
   if (!init) return '';

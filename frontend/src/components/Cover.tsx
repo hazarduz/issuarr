@@ -1,18 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { covers, isConnected, mediaUrl } from '../data/api';
 import type { Title } from '../data/mock';
 
+const fileCoverFormats = ['CBZ', 'CBR', 'CB7', 'EPUB'];
+
+/** Image sources to try, best first: chosen/metadata cover, then the first file's own cover. */
+function sources(title: Title): string[] {
+  const list: string[] = [];
+  if (title.coverUrl) list.push(mediaUrl(title.coverUrl)!);
+  if (isConnected()) {
+    const first = [...title.issues]
+      .filter((i) => i.file && i.serverId != null && fileCoverFormats.includes(i.file.format))
+      .sort((a, b) => a.releaseDate.localeCompare(b.releaseDate))[0];
+    if (first) list.push(covers.issueCoverUrl(first.serverId!));
+  }
+  return list;
+}
+
 /**
- * Shows the real cover when the metadata source has one, otherwise a
- * generated, printed-looking placeholder built from the title's palette.
+ * Shows the real cover when there is one (custom, metadata, or the first file's own cover),
+ * otherwise a generated, printed-looking placeholder built from the title's palette.
  */
 export function Cover({ title, issue, size = 'md' }: { title: Title; issue?: string; size?: 'sm' | 'md' | 'lg' }) {
-  const [failed, setFailed] = useState(false);
+  const list = sources(title);
+  const key = list.join('|');
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [key]);
   const [a, b] = title.palette;
 
-  if (title.coverUrl && !failed) {
+  if (index < list.length) {
     return (
       <div className={`cover has-image ${title.kind}`} style={{ background: `linear-gradient(155deg, ${a} 0%, ${b} 100%)` }}>
-        <img src={title.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+        <img src={list[index]} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setIndex((i) => i + 1)} />
       </div>
     );
   }

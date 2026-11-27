@@ -62,6 +62,8 @@ public class Program
         services.AddSingleton<ITitleManagementService, TitleManagementService>();
         services.AddSingleton<IIssueManagementService, IssueManagementService>();
         services.AddSingleton<Issuarr.Core.MediaFiles.IDiskScanService, Issuarr.Core.MediaFiles.DiskScanService>();
+        services.AddSingleton<Issuarr.Core.MediaFiles.ICoverService, Issuarr.Core.MediaFiles.CoverService>();
+        services.AddSingleton<Issuarr.Core.Reading.IReadingHomeService, Issuarr.Core.Reading.ReadingHomeService>();
         services.AddSingleton<IRootFolderService, RootFolderService>();
         services.AddSingleton<ILibraryImportService, LibraryImportService>();
         services.AddSingleton<IConfigService, ConfigService>();

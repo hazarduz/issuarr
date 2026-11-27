@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FolderOpen,
   HardDrive,
+  ImagePlus,
   History,
   Link2,
   Loader2,
@@ -19,6 +20,7 @@ import {
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Cover } from '../components/Cover';
+import { CoverDialog } from '../components/CoverDialog';
 import { ItemDeleteDialog, ItemMatchDialog } from '../components/ItemDialogs';
 import { MatchDialog } from '../components/MatchDialog';
 import { MonitorToggle, ProgressBar, StatusPill } from '../components/Status';
@@ -29,7 +31,7 @@ import { api, isConnected } from '../data/api';
 import { itemWord, kindLabel, parseDate, sourceName, stats, titles, type Issue } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
-type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | { search: Issue | null } | { matchItem: Issue } | { deleteItem: Issue };
+type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | 'cover' | { search: Issue | null } | { matchItem: Issue } | { deleteItem: Issue };
 
 export default function TitleDetail() {
   useLibraryVersion();
@@ -60,7 +62,7 @@ export default function TitleDetail() {
         <div>
           <BookOpen size={40} />
           <h2>Title not found</h2>
-          <Link className="btn" to="/">
+          <Link className="btn" to="/library">
             Back to library
           </Link>
         </div>
@@ -137,6 +139,9 @@ export default function TitleDetail() {
         <div className="hero-inner">
           <div className="hero-cover">
             <Cover title={title} size="lg" />
+            <button className="btn sm edit-cover" onClick={needsLive('cover')} title="Change the cover">
+              <ImagePlus size={14} /> Edit cover
+            </button>
           </div>
           <div style={{ minWidth: 0 }}>
             <h1>
@@ -367,6 +372,7 @@ export default function TitleDetail() {
       {dialog === 'rename' && <RenameDialog title={title} onClose={() => setDialog(null)} />}
       {dialog === 'files' && <FilesDialog title={title} onClose={() => setDialog(null)} />}
       {dialog === 'history' && <HistoryDialog title={title} onClose={() => setDialog(null)} />}
+      {dialog === 'cover' && <CoverDialog title={title} onClose={() => setDialog(null)} />}
       {dialog === 'match' && (
         <MatchDialog
           kind={title.kind}

@@ -107,7 +107,7 @@ export function DeleteTitleDialog({ title, onClose }: { title: Title; onClose: (
       await api.deleteTitle(title.id, deleteFiles);
       await refreshLibrary();
       toast(`${title.name} deleted`);
-      navigate('/');
+      navigate('/library');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not delete', 'error');
       setBusy(false);

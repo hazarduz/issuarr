@@ -10,6 +10,7 @@ import {
   Sun,
   TriangleAlert,
   Bell,
+  House,
   CheckCircle2,
   CircleAlert,
   Info,
@@ -23,8 +24,9 @@ import { useLibraryVersion } from '../data/store';
 
 
 const buildNav = (missingCount: number, queueCount: number) => [
+  { to: '/', label: 'Home', icon: House, home: true },
   {
-    to: '/',
+    to: '/library',
     label: 'Library',
     icon: BookOpen,
     end: true,
@@ -260,9 +262,11 @@ export function Layout() {
 
       <nav className={`sidebar ${menuOpen ? 'open' : ''}`}>
         {nav.map((item) => {
-          const active = item.end
-            ? location.pathname === '/' || location.pathname.startsWith('/title') || ['/add', '/import'].includes(location.pathname)
-            : location.pathname.startsWith(item.to);
+          const active = 'home' in item
+            ? location.pathname === '/'
+            : item.end
+              ? location.pathname.startsWith('/library') || location.pathname.startsWith('/title') || ['/add', '/import'].includes(location.pathname)
+              : location.pathname.startsWith(item.to);
           const Icon = item.icon;
           return (
             <div className="nav-group" key={item.to}>

@@ -20,6 +20,7 @@ public class ReadProgress
 public interface IReadProgressRepository
 {
     ReadProgress? Get(int issueId);
+    List<ReadProgress> All();
     Dictionary<int, double> PercentByIssue(IEnumerable<int> issueIds);
     void Save(ReadProgress progress);
     void Clear(int issueId);
@@ -31,6 +32,12 @@ public class ReadProgressRepository(IDatabase db, IClock clock) : IReadProgressR
     {
         using var conn = db.Open();
         return conn.QuerySingleOrDefault<ReadProgress>("SELECT * FROM ReadProgress WHERE IssueId = @issueId", new { issueId });
+    }
+
+    public List<ReadProgress> All()
+    {
+        using var conn = db.Open();
+        return conn.Query<ReadProgress>("SELECT * FROM ReadProgress ORDER BY Updated DESC").AsList();
     }
 
     public Dictionary<int, double> PercentByIssue(IEnumerable<int> issueIds)

@@ -44,4 +44,7 @@ public class Title
     public string? ExternalId { get; set; }
     public string? CoverUrl { get; set; }
     public string? LastRefreshed { get; set; }
+
+    /// <summary>File name of a user-chosen cover in the MediaCover folder (null = use CoverUrl).</summary>
+    public string? CustomCover { get; set; }
 }

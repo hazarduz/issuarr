@@ -69,7 +69,8 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             Added = title.Added,
             MetadataSourceName = title.MetadataSource,
             ExternalId = title.ExternalId,
-            Cover = title.CoverUrl,
+            // A custom cover is served by Issuarr; the version in the name busts browser caches.
+            Cover = title.CustomCover != null ? $"/api/v1/mediacover/{title.Id}?v={Path.GetFileNameWithoutExtension(title.CustomCover)}" : title.CoverUrl,
             LastRefreshed = title.LastRefreshed,
             Statistics = new TitleStatistics(
                 IssueCount: monitoredAired > 0 ? monitoredAired : aired.Count,

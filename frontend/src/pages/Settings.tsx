@@ -5,7 +5,7 @@ import { FolderPicker } from '../components/FolderPicker';
 import { ProviderList } from '../components/Providers';
 import { useToast } from '../components/Toast';
 import { Grow, Tool, Toolbar } from '../components/Toolbar';
-import { api, formatBytes, isConnected, serverInfo, type HostConfig, type QualityProfile, type RootFolder } from '../data/api';
+import { api, formatBytes, isConnected, opdsUrl, serverInfo, type HostConfig, type QualityProfile, type RootFolder } from '../data/api';
 
 const sections = [
   { id: 'media', label: 'Media Management' },
@@ -436,6 +436,41 @@ function General({ cfg, host, setHost }: { cfg: Config; host: HostConfig | null;
             >
               <RefreshCw size={16} />
             </button>
+          </div>
+        </Row>
+      </div>
+
+      <h3 style={{ margin: '28px 0 12px' }}>OPDS (e-readers)</h3>
+      <div className="card card-body">
+        <p className="muted" style={{ marginTop: 0 }}>
+          Browse and download your library from reading apps that support OPDS: <b>KOReader</b> (Kobo, Kindle, PocketBook, Android), Panels, Chunky, KyBook, Moon+ Reader, Thorium… KOReader and Panels can also stream comic pages without downloading the whole file.
+        </p>
+        <Row
+          label="Catalog address"
+          help={
+            loginOn
+              ? `Sign in with your Issuarr username (${host.username || 'set above'}) and password.`
+              : 'Login is off, so the catalog is open to anyone on your network. Turn on login above to protect it.'
+          }
+        >
+          <div style={{ display: 'flex', gap: 8, maxWidth: 560 }}>
+            <input className="input mono" readOnly value={opdsUrl(false)} onFocus={(e) => e.target.select()} />
+            <button className="btn" title="Copy" onClick={() => navigator.clipboard?.writeText(opdsUrl(false)).then(() => toast('OPDS address copied'))}>
+              <Copy size={16} />
+            </button>
+          </div>
+        </Row>
+        <Row label="Address with key" help="For apps that can't log in. It contains your API key, so keep it private.">
+          <div style={{ display: 'flex', gap: 8, maxWidth: 560 }}>
+            <input className="input mono" readOnly value={opdsUrl(true)} onFocus={(e) => e.target.select()} />
+            <button className="btn" title="Copy" onClick={() => navigator.clipboard?.writeText(opdsUrl(true)).then(() => toast('OPDS address copied'))}>
+              <Copy size={16} />
+            </button>
+          </div>
+        </Row>
+        <Row label="Kobo">
+          <div className="help" style={{ marginTop: 8 }}>
+            Kobo's built-in reader doesn't support OPDS. Install <a href="https://koreader.rocks" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>KOReader</a> on the Kobo (it runs alongside the Kobo software), then in KOReader open <b>Search → OPDS catalog → +</b> and add the address above with your username and password. Use your NAS's network address rather than “localhost”.
           </div>
         </Row>
       </div>

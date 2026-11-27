@@ -288,7 +288,7 @@ export default function LibraryImport() {
             <button className="btn" onClick={() => setPicking(true)}>
               <FolderOpen size={16} /> Import another folder
             </button>
-            <Link className="btn primary" to="/" style={{ marginLeft: 'auto' }}>
+            <Link className="btn primary" to="/library" style={{ marginLeft: 'auto' }}>
               Go to Library
             </Link>
           </div>
