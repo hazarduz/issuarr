@@ -5,7 +5,7 @@ using Issuarr.Core.Titles;
 namespace Issuarr.Host.Api.V1;
 
 /// <summary>Builds API resources from models, including derived status and statistics.</summary>
-public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files, IClock clock, Issuarr.Core.Decisions.IPendingDownloads pending)
+public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files, IClock clock, Issuarr.Core.Decisions.IPendingDownloads pending, Issuarr.Core.Reading.IReadProgressRepository progress)
 {
     public List<TitleResource> Titles(IEnumerable<Title> titles, bool includeIssues)
     {
@@ -20,7 +20,7 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
         return Title(title, issues.GetByTitle(title.Id), fileMap, includeIssues);
     }
 
-    public IssueResource Issue(Issue issue, Title title, IReadOnlyDictionary<int, IssueFile> fileMap)
+    public IssueResource Issue(Issue issue, Title title, IReadOnlyDictionary<int, IssueFile> fileMap, IReadOnlyDictionary<int, double>? readPercent = null)
     {
         IssueFileResource? file = null;
         if (issue.IssueFileId is { } fid && fileMap.TryGetValue(fid, out var f))
@@ -37,12 +37,14 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             issue.Monitored,
             IssueStatusCalculator.Calculate(issue, title.Monitored, clock.Today, pending.PendingIssueIds().Contains(issue.Id)),
             file,
-            issue.CoverUrl);
+            issue.CoverUrl,
+            readPercent?.GetValueOrDefault(issue.Id) is var p and > 0 ? p : null);
     }
 
     private TitleResource Title(Title title, List<Issue> titleIssues, IReadOnlyDictionary<int, IssueFile> fileMap, bool includeIssues)
     {
-        var mapped = titleIssues.Select(i => Issue(i, title, fileMap)).ToList();
+        var read = includeIssues ? progress.PercentByIssue(titleIssues.Where(i => i.IssueFileId != null).Select(i => i.Id)) : null;
+        var mapped = titleIssues.Select(i => Issue(i, title, fileMap, read)).ToList();
         var aired = mapped.Where(i => i.Status != IssueStatus.Unaired).ToList();
         var monitoredAired = aired.Count(i => i.Monitored);
         var next = mapped.Where(i => i.Status == IssueStatus.Unaired).MinBy(i => i.ReleaseDate);

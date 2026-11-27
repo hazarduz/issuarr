@@ -28,6 +28,7 @@ interface ApiIssue {
   status: IssueStatus;
   file?: { id: number; name: string; size: number; format: string };
   coverUrl?: string;
+  readPercent?: number;
 }
 
 export interface ApiTitle {
@@ -365,6 +366,7 @@ export function toTitle(t: ApiTitle): Title {
     status: i.status,
     monitored: i.monitored,
     coverUrl: i.coverUrl,
+    readPercent: i.readPercent,
     file: i.file ? { id: i.file.id, name: i.file.name, size: formatBytes(i.file.size), format: i.file.format } : undefined,
   }));
   return {
@@ -537,6 +539,34 @@ export const api = {
   health: () => request<HealthItem[]>('/health'),
   status: () => request<Record<string, string | boolean>>('/system/status'),
   tasks: () => request<ScheduledTask[]>('/system/task'),
+};
+
+export interface ReadInfo {
+  issueId: number;
+  titleId: number;
+  titleName: string;
+  titleSlug: string;
+  kind: Title['kind'];
+  number: string;
+  issueTitle?: string;
+  format: string;
+  mode: 'comic' | 'pdf' | 'epub' | 'download';
+  pages?: number;
+  size: number;
+  fileName: string;
+  error?: string;
+  progress?: { position: string; percent: number; updated: string };
+  previousId?: number;
+  nextId?: number;
+}
+
+export const reader = {
+  info: (issueId: number | string) => request<ReadInfo>(`/read/${issueId}`),
+  pageUrl: (issueId: number | string, page: number) => (init ? `${init.apiRoot}/read/${issueId}/page/${page}?apikey=${init.apiKey}` : ''),
+  fileUrl: (issueId: number | string, download = false) => (init ? `${init.apiRoot}/read/${issueId}/file?apikey=${init.apiKey}${download ? '&download=true' : ''}` : ''),
+  saveProgress: (issueId: number | string, position: string, percent: number) =>
+    request(`/read/${issueId}/progress`, json('PUT', { position, percent })),
+  clearProgress: (issueId: number | string) => request(`/read/${issueId}/progress`, { method: 'DELETE' }),
 };
 
 /** URL of the iCal feed (includes the API key so calendar apps can fetch it). */

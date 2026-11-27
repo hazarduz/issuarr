@@ -10,6 +10,7 @@ export interface Issue {
   monitored: boolean;
   serverId?: number;
   coverUrl?: string;
+  readPercent?: number;
   file?: { id?: number; name: string; size: string; format: string };
 }
 

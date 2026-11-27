@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  BookOpenText,
   Building2,
   CalendarClock,
   ChevronDown,
@@ -16,7 +17,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Cover } from '../components/Cover';
 import { ItemDeleteDialog, ItemMatchDialog } from '../components/ItemDialogs';
 import { MatchDialog } from '../components/MatchDialog';
@@ -38,6 +39,7 @@ export default function TitleDetail() {
   const [, force] = useState(0);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const navigate = useNavigate();
 
   const byYear = useMemo(() => {
     const g = new Map<string, Issue[]>();
@@ -258,7 +260,7 @@ export default function TitleDetail() {
                         <th>File</th>
                         <th>Size</th>
                         <th>Status</th>
-                        <th style={{ width: 150 }} />
+                        <th style={{ width: 180 }} />
                       </tr>
                     </thead>
                     <tbody>
@@ -283,10 +285,32 @@ export default function TitleDetail() {
                           </td>
                           <td className="num muted">{i.file?.size ?? ''}</td>
                           <td>
-                            <StatusPill status={i.status} />
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <StatusPill status={i.status} />
+                              {i.readPercent != null &&
+                                (i.readPercent >= 98 ? (
+                                  <span className="pill ok" title="Finished">
+                                    ✓ Read
+                                  </span>
+                                ) : (
+                                  <span className="pill accent" title="Reading progress">
+                                    {Math.round(i.readPercent)}%
+                                  </span>
+                                ))}
+                            </div>
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                              {i.file && i.serverId != null && live && (
+                                <button
+                                  className="icon-btn read-btn"
+                                  style={{ width: 30, height: 30 }}
+                                  title={['EPUB', 'PDF', 'CBZ', 'CBR', 'CB7'].includes(i.file.format) ? (i.readPercent ? 'Continue reading' : 'Read') : `Download ${i.file.format}`}
+                                  onClick={() => navigate(`/read/${i.serverId}`)}
+                                >
+                                  <BookOpenText size={15} />
+                                </button>
+                              )}
                               <button className="icon-btn" style={{ width: 30, height: 30 }} title={`Match or edit this ${itemWord(title.kind)}`} onClick={needsLive({ matchItem: i })}>
                                 <Link2 size={15} />
                               </button>

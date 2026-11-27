@@ -11,6 +11,7 @@
 - [x] Connections: Komga, Kavita, Discord, Webhook
 - [x] eBooks: authors and books from Open Library / Google Books; book release matching and import
 - [x] Magazine details from Wikidata or ComicVine
+- [x] Built-in reader for CBZ/CBR/CB7, PDF and EPUB with synced progress
 - [x] Forms/Basic login, API key, iCal feed, health checks, scheduled tasks
 
 ## Next

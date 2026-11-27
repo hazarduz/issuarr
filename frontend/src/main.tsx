@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
@@ -13,6 +13,9 @@ import Settings from './pages/Settings';
 import System from './pages/System';
 import TitleDetail from './pages/TitleDetail';
 import Wanted from './pages/Wanted';
+
+// The reader pulls in pdf.js and epub.js, so it's loaded only when opened.
+const Reader = lazy(() => import('./pages/Reader'));
 import './styles.css';
 
 try {
@@ -28,6 +31,14 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <ToastProvider>
         <Routes>
+          <Route
+            path="read/:issueId"
+            element={
+              <Suspense fallback={null}>
+                <Reader />
+              </Suspense>
+            }
+          />
           <Route element={<Layout />}>
             <Route index element={<Library />} />
             <Route path="add" element={<AddNew />} />

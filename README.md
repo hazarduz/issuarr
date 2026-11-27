@@ -34,6 +34,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - **Interactive search:** see every release with the reason it would or wouldn't be grabbed, and download any of them
 - **Quality profiles:** prefer CBZ or PDF, upgrade until the cutoff, blocklist failed releases and search again
 - **Import:** finished downloads are renamed with your naming format and moved, or hardlinked for torrents; ComicInfo.xml is written into CBZ files
+- **Built-in reader:** read comics (CBZ/CBR/CB7), magazines (PDF) and eBooks (EPUB) in the browser, with reading progress synced across devices; MOBI/AZW3 can be downloaded
 - **Connections:** rescan Komga or Kavita on import; Discord and webhook notifications
 - **Calendar:** month view and an iCal feed for your calendar app
 - **Login:** Forms or Basic, optionally skipped on your home network; API key for other apps
@@ -155,6 +156,8 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/history` · `/api/v1/blocklist` | History, blocklist |
 | GET / PUT | `/api/v1/config` · `/api/v1/config/host` | Settings |
 | GET | `/api/v1/wanted/cutoff` | Issues that could be upgraded |
+| GET | `/api/v1/read/{issueId}` · `/page/{n}` · `/file` | Reader: info, comic page images, the raw file (`?download=true`) |
+| PUT / DELETE | `/api/v1/read/{issueId}/progress` | Save `{ position, percent }` / clear reading progress |
 | GET | `/feed/v1/calendar/issuarr.ics` | iCal feed |
 | GET | `/api/v1/health` · `/api/v1/system/status` · `/api/v1/system/task` | Health checks, system info, scheduled tasks |
 

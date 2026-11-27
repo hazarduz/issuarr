@@ -66,6 +66,7 @@ public class Program
         services.AddSingleton<IConfigService, ConfigService>();
         services.AddSingleton<FileNameBuilder>();
         services.AddSingleton<IHistoryService, HistoryService>();
+        services.AddSingleton<Issuarr.Core.Reading.IReadProgressRepository, Issuarr.Core.Reading.ReadProgressRepository>();
         services.AddSingleton<IBlocklistService, BlocklistService>();
         services.AddSingleton<DemoDataSeeder>();
 
