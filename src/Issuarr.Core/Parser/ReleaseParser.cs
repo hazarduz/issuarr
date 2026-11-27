@@ -80,6 +80,9 @@ public static partial class ReleaseParser
     [GeneratedRegex(@"[\s]{2,}")]
     private static partial Regex MultiSpace();
 
+    [GeneratedRegex(@"^(?<num>\d{1,4}(?:\.\d)?)\s*(?:-|–|—|\.\s|_-_|_)\s*(?<rest>.*[A-Za-z].*)$")]
+    private static partial Regex LeadingNumber();
+
     public static ParsedRelease? Parse(string releaseName)
     {
         if (string.IsNullOrWhiteSpace(releaseName))
@@ -95,6 +98,18 @@ public static partial class ReleaseParser
         {
             result.Format = ext.Groups["ext"].Value.ToUpperInvariant();
             name = name[..ext.Index];
+        }
+
+        // Number-first names: "0001 - Retro Gamer", "012. Saga", "0001_-_Title". Move the number
+        // after the title so the rest of the parser sees the usual "Title 0001" shape. A leading
+        // year ("2024 - Title") is treated as the year instead.
+        var lead = LeadingNumber().Match(name);
+        if (lead.Success)
+        {
+            var num = lead.Groups["num"].Value;
+            var rest = lead.Groups["rest"].Value.Trim();
+            var isYear = num.Length == 4 && (num.StartsWith("19") || num.StartsWith("20"));
+            name = isYear ? $"{rest} ({num})" : $"{rest} #{num}";
         }
 
         var group = GroupRegex().Match(name);

@@ -13,7 +13,12 @@ public class ReleaseParserFixture
     [TestCase("Moth & Lantern #1 (2024)", "Moth & Lantern", 1, 2024, null)]
     [TestCase("2000 AD 2412 (2024) (digital)", "2000 AD", 2412, 2024, null)]
     [TestCase("Velocity Issue 112 2026 PDF", "Velocity", 112, 2026, "PDF")]
-    public void should_parse_comic_style_releases(string release, string title, decimal issue, int year, string? format)
+    [TestCase("0001 - Retro Gamer.pdf", "Retro Gamer", 1, null, "PDF")]
+    [TestCase("0258 - Retro Gamer.pdf", "Retro Gamer", 258, null, "PDF")]
+    [TestCase("012. Saga (2014).cbz", "Saga", 12, 2014, "CBZ")]
+    [TestCase("0045_-_Iron_Tide.cbr", "Iron Tide", 45, null, "CBR")]
+    [TestCase("2024 - Retro Gamer Annual.pdf", "Retro Gamer Annual", null, 2024, "PDF")]
+    public void should_parse_comic_style_releases(string release, string title, decimal? issue, int? year, string? format)
     {
         var result = ReleaseParser.Parse(release);
 

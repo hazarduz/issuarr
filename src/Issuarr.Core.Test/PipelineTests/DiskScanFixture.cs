@@ -107,6 +107,47 @@ public class DiskScanFixture
     }
 
     [Test]
+    public async Task numbered_magazine_import_continues_its_numbering()
+    {
+        for (var n = 1; n <= 3; n++)
+        {
+            Touch($"Retro Gamer/{n:0000} - Retro Gamer.pdf");
+            File.SetLastWriteTime(Path.Combine(_root, $"Retro Gamer/{n:0000} - Retro Gamer.pdf"), new DateTime(2026, 8 + n, 5));
+        }
+
+        var import = new Issuarr.Core.LibraryImport.LibraryImportService(_titles, _issues, _files, new FixedClock(new DateOnly(2026, 11, 26)));
+        var candidate = import.Scan(_root).Single();
+        Assert.That(candidate.Kind, Is.EqualTo(TitleKind.Magazine), "a folder of PDFs is a magazine");
+        Assert.That(candidate.MatchedFileCount, Is.EqualTo(3));
+
+        var result = import.Import([new Issuarr.Core.LibraryImport.ImportRequest { Path = candidate.Path, Name = "Retro Gamer", Kind = TitleKind.Magazine }]).Single();
+        Assert.That(result.IssuesImported, Is.EqualTo(3));
+        Assert.That(result.UnmatchedFiles, Is.Empty);
+
+        var repo = new TitleRepository(_db.Db);
+        var refresh = new RefreshTitleService(repo, _issues, [], new FixedClock(new DateOnly(2026, 11, 26)), NullLogger<RefreshTitleService>.Instance);
+        await refresh.Refresh(result.TitleId!.Value, CancellationToken.None);
+
+        Assert.That(_issues.GetByTitle(result.TitleId!.Value).Select(i => i.Number), Is.EqualTo(new[] { "#4", "#3", "#2", "#1" }), "next issue is #4, not a dated entry");
+        Assert.That(await refresh.Refresh(result.TitleId!.Value, CancellationToken.None), Is.EqualTo(0), "#4 is still to come, so nothing more is added");
+    }
+
+    [Test]
+    public async Task adding_a_magazine_over_a_folder_of_numbered_files_continues_the_numbering()
+    {
+        for (var n = 1; n <= 258; n++)
+        {
+            Touch($"Retro Gamer/{n:0000} - Retro Gamer.pdf");
+        }
+
+        var t = await _mgmt.Add(new Title { Name = "Retro Gamer", Kind = TitleKind.Magazine, Frequency = "Monthly", Year = 2004 }, _root, new AddTitleOptions(), CancellationToken.None);
+        var issues = _issues.GetByTitle(t.Id);
+
+        Assert.That(issues.Count(i => i.IssueFileId != null), Is.EqualTo(258));
+        Assert.That(issues.Where(i => i.IssueFileId == null).Select(i => i.Number), Is.EqualTo(new[] { "#259" }), "only the next issue is wanted; no dated entries");
+    }
+
+    [Test]
     public void missing_folder_is_reported()
     {
         var t = _titles.Add(new Title { Name = "Ghost", Path = Path.Combine(_root, "nope") }, _root);

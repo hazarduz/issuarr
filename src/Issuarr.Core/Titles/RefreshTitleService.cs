@@ -53,8 +53,8 @@ public class RefreshTitleService(
         {
             try
             {
-                await Refresh(t.Id, ct);
                 diskScan?.Scan(t.Id);
+                await Refresh(t.Id, ct);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -152,12 +152,39 @@ public class RefreshTitleService(
         var last = local.Select(i => DateOnly.Parse(i.ReleaseDate, CultureInfo.InvariantCulture)).DefaultIfEmpty().Max();
 
         var horizon = clock.Today;
-        if (local.Count > 0 && last > horizon)
+
+        // Magazines named by issue number (e.g. "0258 - Retro Gamer.pdf") continue their numbering.
+        // Their dates are usually guesses, so rather than back-filling by date, only the next issue
+        // is added, and the one after that once its expected date has passed.
+        var visible = local.Where(i => !i.Ignored).ToList();
+        if (visible.Count > 0 && visible.Count(i => IssueNumbering.GetNumber(i.Number) != null) * 2 > visible.Count)
+        {
+            var numberedIssues = visible.Where(i => IssueNumbering.GetNumber(i.Number) != null).ToList();
+            var latest = numberedIssues.MaxBy(i => IssueNumbering.GetNumber(i.Number))!;
+            var latestDate = DateOnly.Parse(latest.ReleaseDate, CultureInfo.InvariantCulture);
+            if (latest.IssueFileId == null && latestDate > horizon)
+            {
+                return 0; // the next issue is already waiting
+            }
+
+            var nextNumber = Math.Floor(IssueNumbering.GetNumber(latest.Number)!.Value) + 1;
+            var label = "#" + nextNumber.ToString("0", CultureInfo.InvariantCulture);
+            if (known.Contains(label))
+            {
+                return 0;
+            }
+
+            var due = step(latestDate > horizon ? latestDate : horizon);
+            issues.InsertMany([new Issue { TitleId = title.Id, Number = label, SortKey = (double)nextNumber, ReleaseDate = due.ToString("yyyy-MM-dd"), Monitored = title.Monitored }]);
+            return 1;
+        }
+
+        if (firstIssueDate == null && local.Count > 0 && last > horizon)
         {
             return 0; // The next issue is already scheduled.
         }
 
-        var next = local.Count == 0 ? firstIssueDate ?? clock.Today : step(last);
+        var next = firstIssueDate ?? (local.Count == 0 ? clock.Today : step(last));
         var created = new List<Issue>();
         var guard = 0;
         while (guard++ < 600)

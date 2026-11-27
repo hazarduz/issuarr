@@ -94,6 +94,7 @@ public class TitleManagementService(
         var added = titles.Add(title, rootFolder);
         Directory.CreateDirectory(added.Path);
 
+        diskScan?.Scan(added.Id);
         try
         {
             await refresh.Refresh(added.Id, ct, options.FirstIssueDate);
@@ -104,7 +105,7 @@ public class TitleManagementService(
             throw new TitleAddedWithWarningException(added, $"Added, but couldn't load issues: {e.Message}");
         }
 
-        diskScan?.Scan(added.Id);
+        diskScan?.Scan(added.Id); // again, in case the refresh added issues that files belong to
         ApplyMonitoring(added.Id, onlyOneBook ? MonitorOption.None : options.Monitor);
         if (onlyOneBook && FindBook(added.Id, options.BookExternalId, options.BookTitle) is { } chosen)
         {

@@ -334,6 +334,12 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
             return TitleKind.Comic;
         }
 
+        // Folders of PDFs are almost always magazines, whether named by date or by issue number.
+        if (found.Count(f => f.Extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)) * 2 > found.Count)
+        {
+            return TitleKind.Magazine;
+        }
+
         return parsed.Count(p => p?.IsDated == true) * 2 >= found.Count ? TitleKind.Magazine : TitleKind.Comic;
     }
 

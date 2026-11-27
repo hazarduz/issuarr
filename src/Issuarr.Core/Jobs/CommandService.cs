@@ -144,8 +144,9 @@ public class CommandService(IServiceProvider services, ILogger<CommandService> l
         {
             case CommandNames.RefreshTitle:
                 var refreshId = cmd.TitleId ?? throw new ArgumentException("titleId is required");
-                var added = await Get<IRefreshTitleService>().Refresh(refreshId, ct);
+                // Scan first so the schedule knows what's on disk (e.g. numbered magazine files).
                 var scan = Get<MediaFiles.IDiskScanService>().Scan(refreshId);
+                var added = await Get<IRefreshTitleService>().Refresh(refreshId, ct);
                 var metadata = added == 0 ? "Up to date" : $"{added} new issue{(added == 1 ? "" : "s")}";
                 return scan.Added == 0 && scan.Removed == 0 && scan.FolderExists ? metadata : $"{metadata} · {scan.Summary}";
 
