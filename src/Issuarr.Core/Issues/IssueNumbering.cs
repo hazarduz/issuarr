@@ -20,4 +20,8 @@ public static class IssueNumbering
             _ => releaseDate.ToString("MMM yyyy", CultureInfo.InvariantCulture),
         };
     }
+
+    /// <summary>The numeric part of "#37" / "#12.5", or null for dated labels like "Nov 2026".</summary>
+    public static decimal? GetNumber(string number) =>
+        number.StartsWith('#') && decimal.TryParse(number[1..], NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n : null;
 }

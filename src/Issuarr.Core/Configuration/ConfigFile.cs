@@ -35,6 +35,12 @@ public class ConfigFile
     public string ApiKey => Get("ApiKey")!;
     public string LogLevel => Get("LogLevel") ?? "info";
     public string InstanceName => Get("InstanceName") ?? "Issuarr";
+    public string Username => Get("Username") ?? "";
+    public string PasswordHash => Get("PasswordHash") ?? "";
+
+    /// <summary>"Enabled" or "DisabledForLocalAddresses".</summary>
+    public string AuthenticationRequired => Get("AuthenticationRequired") ?? "Enabled";
+
     public AuthenticationMethod AuthenticationMethod =>
         Enum.TryParse<AuthenticationMethod>(Get("AuthenticationMethod"), true, out var m) ? m : AuthenticationMethod.None;
 
@@ -47,6 +53,49 @@ public class ConfigFile
                 return new Dictionary<string, string>(_values, StringComparer.OrdinalIgnoreCase);
             }
         }
+    }
+
+    public void SetMany(IDictionary<string, string> values)
+    {
+        lock (_lock)
+        {
+            foreach (var (k, v) in values)
+            {
+                _values[k] = v;
+            }
+
+            Save();
+        }
+    }
+
+    public void SetPassword(string password) => Set("PasswordHash", HashPassword(password));
+
+    public bool VerifyPassword(string username, string password)
+    {
+        if (!string.Equals(username, Username, StringComparison.OrdinalIgnoreCase) || PasswordHash.Length == 0)
+        {
+            return false;
+        }
+
+        var parts = PasswordHash.Split('$');
+        if (parts.Length != 4 || parts[0] != "pbkdf2")
+        {
+            return false;
+        }
+
+        var iterations = int.Parse(parts[1]);
+        var salt = Convert.FromBase64String(parts[2]);
+        var expected = Convert.FromBase64String(parts[3]);
+        var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+        return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    public static string HashPassword(string password)
+    {
+        const int iterations = 210_000;
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, 32);
+        return $"pbkdf2${iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
     public string? Get(string key)
@@ -96,6 +145,7 @@ public class ConfigFile
             ["UrlBase"] = () => "",
             ["ApiKey"] = NewApiKey,
             ["AuthenticationMethod"] = () => nameof(AuthenticationMethod.None),
+            ["AuthenticationRequired"] = () => "Enabled",
             ["LogLevel"] = () => "info",
             ["InstanceName"] = () => "Issuarr",
         };

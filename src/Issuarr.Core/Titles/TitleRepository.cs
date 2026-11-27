@@ -16,7 +16,7 @@ public interface ITitleRepository
 public class TitleRepository(IDatabase db) : ITitleRepository
 {
     private const string Columns =
-        "Name, SortName, Slug, Kind, Publisher, Year, Frequency, Status, Monitored, QualityProfile, Path, Overview, Tags, Palette, Added";
+        "Name, SortName, Slug, Kind, Publisher, Year, Frequency, Status, Monitored, QualityProfile, Path, Overview, Tags, Palette, Added, MetadataSource, ExternalId, CoverUrl, LastRefreshed";
 
     public List<Title> All()
     {

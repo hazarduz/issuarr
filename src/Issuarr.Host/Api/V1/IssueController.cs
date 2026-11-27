@@ -54,8 +54,22 @@ public class CalendarController(IIssueRepository issues, IIssueFileRepository fi
 
 [ApiController]
 [Route("api/v1/wanted")]
-public class WantedController(IIssueRepository issues, ITitleService titles, ResourceMapper mapper) : ControllerBase
+public class WantedController(IIssueRepository issues, IIssueFileRepository files, ITitleService titles, ResourceMapper mapper) : ControllerBase
 {
+    /// <summary>Issues whose file is in a worse format than the title's profile cutoff.</summary>
+    [HttpGet("cutoff")]
+    public List<IssueResource> CutoffUnmet()
+    {
+        var titleMap = titles.All().ToDictionary(t => t.Id);
+        var fileMap = files.All().ToDictionary(f => f.Id);
+        return issues.WithFiles()
+            .Where(i => titleMap.TryGetValue(i.TitleId, out var t) && t.Monitored && i.Monitored && fileMap.TryGetValue(i.IssueFileId!.Value, out var f)
+                        && Issuarr.Core.Decisions.QualityProfiles.Get(t.QualityProfile) is { UpgradesAllowed: true } p && p.Rank(f.Format) > 0)
+            .OrderByDescending(i => i.ReleaseDate)
+            .Select(i => mapper.Issue(i, titleMap[i.TitleId], fileMap))
+            .ToList();
+    }
+
     [HttpGet("missing")]
     public List<IssueResource> Missing()
     {

@@ -34,4 +34,11 @@ public class Title
     public List<string> Palette { get; set; } = [];
 
     public string Added { get; set; } = "";
+
+    /// <summary>"comicvine", "metron" or null for titles added by hand / imported.</summary>
+    public string? MetadataSource { get; set; }
+
+    public string? ExternalId { get; set; }
+    public string? CoverUrl { get; set; }
+    public string? LastRefreshed { get; set; }
 }

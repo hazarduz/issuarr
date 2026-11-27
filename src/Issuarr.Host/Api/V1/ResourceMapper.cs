@@ -5,7 +5,7 @@ using Issuarr.Core.Titles;
 namespace Issuarr.Host.Api.V1;
 
 /// <summary>Builds API resources from models, including derived status and statistics.</summary>
-public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files, IClock clock)
+public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files, IClock clock, Issuarr.Core.Decisions.IPendingDownloads pending)
 {
     public List<TitleResource> Titles(IEnumerable<Title> titles, bool includeIssues)
     {
@@ -35,8 +35,9 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             issue.IssueTitle,
             issue.ReleaseDate,
             issue.Monitored,
-            IssueStatusCalculator.Calculate(issue, title.Monitored, clock.Today),
-            file);
+            IssueStatusCalculator.Calculate(issue, title.Monitored, clock.Today, pending.PendingIssueIds().Contains(issue.Id)),
+            file,
+            issue.CoverUrl);
     }
 
     private TitleResource Title(Title title, List<Issue> titleIssues, IReadOnlyDictionary<int, IssueFile> fileMap, bool includeIssues)
@@ -64,6 +65,9 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             Tags = title.Tags,
             Palette = title.Palette,
             Added = title.Added,
+            MetadataSourceName = title.MetadataSource,
+            Cover = title.CoverUrl,
+            LastRefreshed = title.LastRefreshed,
             Statistics = new TitleStatistics(
                 IssueCount: monitoredAired > 0 ? monitoredAired : aired.Count,
                 IssueFileCount: aired.Count(i => i.File != null),

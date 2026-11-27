@@ -8,12 +8,17 @@ public interface IIssueRepository
     List<Issue> GetByTitle(int titleId);
     List<Issue> All();
     Issue? Get(int id);
+    List<Issue> Get(IEnumerable<int> ids);
     List<Issue> Between(string start, string end);
     List<Issue> Missing(string today);
+    List<Issue> WithFiles();
     void InsertMany(IEnumerable<Issue> issues);
+    void Update(Issue issue);
+    void Delete(IEnumerable<int> ids);
     void SetMonitored(IEnumerable<int> ids, bool monitored);
     void SetMonitoredByTitle(int titleId, bool monitored);
     void SetFile(int issueId, int? fileId);
+    void ClearFile(int fileId);
 }
 
 public class IssueRepository(IDatabase db) : IIssueRepository
@@ -34,6 +39,12 @@ public class IssueRepository(IDatabase db) : IIssueRepository
     {
         using var conn = db.Open();
         return conn.QuerySingleOrDefault<Issue>("SELECT * FROM Issues WHERE Id = @id", new { id });
+    }
+
+    public List<Issue> Get(IEnumerable<int> ids)
+    {
+        using var conn = db.Open();
+        return conn.Query<Issue>("SELECT * FROM Issues WHERE Id IN @ids", new { ids }).AsList();
     }
 
     public List<Issue> Between(string start, string end)
@@ -57,17 +68,41 @@ public class IssueRepository(IDatabase db) : IIssueRepository
             new { today }).AsList();
     }
 
+    public List<Issue> WithFiles()
+    {
+        using var conn = db.Open();
+        return conn.Query<Issue>("SELECT * FROM Issues WHERE IssueFileId IS NOT NULL").AsList();
+    }
+
     public void InsertMany(IEnumerable<Issue> issues)
     {
         using var conn = db.Open();
         using var tx = conn.BeginTransaction();
         conn.Execute(
             """
-            INSERT INTO Issues (TitleId, Number, SortKey, IssueTitle, ReleaseDate, Monitored, IssueFileId)
-            VALUES (@TitleId, @Number, @SortKey, @IssueTitle, @ReleaseDate, @Monitored, @IssueFileId)
+            INSERT INTO Issues (TitleId, Number, SortKey, IssueTitle, ReleaseDate, Monitored, IssueFileId, ExternalId, CoverUrl)
+            VALUES (@TitleId, @Number, @SortKey, @IssueTitle, @ReleaseDate, @Monitored, @IssueFileId, @ExternalId, @CoverUrl)
             """,
             issues, tx);
         tx.Commit();
+    }
+
+    public void Update(Issue issue)
+    {
+        using var conn = db.Open();
+        conn.Execute(
+            """
+            UPDATE Issues SET Number = @Number, SortKey = @SortKey, IssueTitle = @IssueTitle, ReleaseDate = @ReleaseDate,
+                Monitored = @Monitored, IssueFileId = @IssueFileId, ExternalId = @ExternalId, CoverUrl = @CoverUrl
+            WHERE Id = @Id
+            """,
+            issue);
+    }
+
+    public void Delete(IEnumerable<int> ids)
+    {
+        using var conn = db.Open();
+        conn.Execute("DELETE FROM Issues WHERE Id IN @ids", new { ids });
     }
 
     public void SetMonitored(IEnumerable<int> ids, bool monitored)
@@ -87,13 +122,22 @@ public class IssueRepository(IDatabase db) : IIssueRepository
         using var conn = db.Open();
         conn.Execute("UPDATE Issues SET IssueFileId = @fileId WHERE Id = @issueId", new { issueId, fileId });
     }
+
+    public void ClearFile(int fileId)
+    {
+        using var conn = db.Open();
+        conn.Execute("UPDATE Issues SET IssueFileId = NULL WHERE IssueFileId = @fileId", new { fileId });
+    }
 }
 
 public interface IIssueFileRepository
 {
     List<IssueFile> All();
     List<IssueFile> GetByTitle(int titleId);
+    IssueFile? Get(int id);
     IssueFile Insert(IssueFile file);
+    void UpdatePath(int id, string relativePath);
+    void Delete(int id);
 }
 
 public class IssueFileRepository(IDatabase db) : IIssueFileRepository
@@ -110,6 +154,12 @@ public class IssueFileRepository(IDatabase db) : IIssueFileRepository
         return conn.Query<IssueFile>("SELECT * FROM IssueFiles WHERE TitleId = @titleId", new { titleId }).AsList();
     }
 
+    public IssueFile? Get(int id)
+    {
+        using var conn = db.Open();
+        return conn.QuerySingleOrDefault<IssueFile>("SELECT * FROM IssueFiles WHERE Id = @id", new { id });
+    }
+
     public IssueFile Insert(IssueFile file)
     {
         using var conn = db.Open();
@@ -121,5 +171,17 @@ public class IssueFileRepository(IDatabase db) : IIssueFileRepository
             """,
             file);
         return file;
+    }
+
+    public void UpdatePath(int id, string relativePath)
+    {
+        using var conn = db.Open();
+        conn.Execute("UPDATE IssueFiles SET RelativePath = @relativePath WHERE Id = @id", new { id, relativePath });
+    }
+
+    public void Delete(int id)
+    {
+        using var conn = db.Open();
+        conn.Execute("DELETE FROM IssueFiles WHERE Id = @id", new { id });
     }
 }

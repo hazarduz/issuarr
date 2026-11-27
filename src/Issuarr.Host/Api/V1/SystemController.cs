@@ -1,12 +1,12 @@
 using System.Reflection;
 using Issuarr.Core.Configuration;
+using Issuarr.Core.HealthCheck;
+using Issuarr.Core.Jobs;
 using Issuarr.Core.Parser;
 using Issuarr.Core.RootFolders;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Issuarr.Host.Api.V1;
-
-public record HealthResource(string Source, string Type, string Message);
 
 public record RootFolderResource(int Id, string Path, long? FreeSpace, bool Accessible);
 
@@ -39,31 +39,18 @@ public class SystemController(AppFolders folders, ConfigFile config, IWebHostEnv
 
 [ApiController]
 [Route("api/v1/health")]
-public class HealthController(IRootFolderService rootFolders, ConfigFile config) : ControllerBase
+public class HealthController(IHealthCheckService health) : ControllerBase
 {
     [HttpGet]
-    public List<HealthResource> Get()
-    {
-        var results = new List<HealthResource>();
-        var folders = rootFolders.All();
-        if (folders.Count == 0)
-        {
-            results.Add(new("RootFolderCheck", "warning", "No root folders configured. Add one in Settings → Media Management."));
-        }
+    public List<HealthResult> Get() => health.Check();
+}
 
-        results.AddRange(folders.Where(f => !f.Accessible)
-            .Select(f => new HealthResource("RootFolderCheck", "error", $"Root folder is missing or not accessible: {f.Folder.Path}")));
-
-        results.Add(new("IndexerCheck", "warning", "No indexers are configured, so Issuarr cannot search for releases yet."));
-        results.Add(new("DownloadClientCheck", "warning", "No download client is configured."));
-
-        if (config.AuthenticationMethod == AuthenticationMethod.None)
-        {
-            results.Add(new("AuthenticationCheck", "notice", "Authentication is disabled. Don't expose Issuarr to the internet without it."));
-        }
-
-        return results;
-    }
+[ApiController]
+[Route("api/v1/system/task")]
+public class TaskController(IScheduler scheduler) : ControllerBase
+{
+    [HttpGet]
+    public object Get() => scheduler.Tasks().Select(t => new { t.Name, t.Label, interval = (int)t.Interval.TotalMinutes, t.LastRun, t.NextRun });
 }
 
 [ApiController]
@@ -113,16 +100,4 @@ public class ParseController : ControllerBase
         var parsed = ReleaseParser.Parse(title);
         return parsed == null ? NotFound() : parsed;
     }
-}
-
-[ApiController]
-[Route("api/v1")]
-public class ActivityController : ControllerBase
-{
-    // Download clients aren't wired up yet; these exist so the UI has a stable contract.
-    [HttpGet("queue")]
-    public object Queue() => new { totalRecords = 0, records = Array.Empty<object>() };
-
-    [HttpGet("history")]
-    public object History() => new { totalRecords = 0, records = Array.Empty<object>() };
 }

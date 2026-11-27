@@ -18,6 +18,7 @@ public class Database : IDatabase
         DefaultTypeMap.MatchNamesWithUnderscores = false;
         SqlMapper.AddTypeHandler(new DateTimeUtcHandler());
         JsonListHandler.Register();
+        SqlMapper.AddTypeHandler(new JsonDictionaryHandler());
     }
 
     public Database(AppFolders folders)

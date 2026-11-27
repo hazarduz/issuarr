@@ -27,6 +27,8 @@ public class Issue
 
     public bool Monitored { get; set; } = true;
     public int? IssueFileId { get; set; }
+    public string? ExternalId { get; set; }
+    public string? CoverUrl { get; set; }
 }
 
 public class IssueFile

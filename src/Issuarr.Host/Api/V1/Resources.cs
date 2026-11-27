@@ -13,7 +13,8 @@ public record IssueResource(
     string ReleaseDate,
     bool Monitored,
     IssueStatus Status,
-    IssueFileResource? File);
+    IssueFileResource? File,
+    string? CoverUrl = null);
 
 public record TitleStatistics(int IssueCount, int IssueFileCount, int MissingCount, long SizeOnDisk, string? NextIssue);
 
@@ -35,6 +36,9 @@ public record TitleResource
     public List<string> Tags { get; init; } = [];
     public List<string> Palette { get; init; } = [];
     public string Added { get; init; } = "";
+    public string? MetadataSourceName { get; init; }
+    public string? Cover { get; init; }
+    public string? LastRefreshed { get; init; }
     public TitleStatistics? Statistics { get; init; }
     public List<IssueResource>? Issues { get; init; }
 
@@ -59,6 +63,17 @@ public record TitleResource
 public record AddTitleResource : TitleResource
 {
     public string? RootFolderPath { get; init; }
+    public string? MetadataSource { get; init; }
+    public string? ExternalId { get; init; }
+    public string? CoverUrl { get; init; }
+
+    /// <summary>all | future | missing | none</summary>
+    public string Monitor { get; init; } = "all";
+
+    public bool SearchForMissing { get; init; }
+
+    /// <summary>For magazines without a metadata source: date of the first issue to track (yyyy-MM-dd).</summary>
+    public string? FirstIssueDate { get; init; }
 }
 
 public record MonitorIssuesResource(List<int> IssueIds, bool Monitored);
