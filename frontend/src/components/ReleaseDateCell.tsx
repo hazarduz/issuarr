@@ -1,6 +1,6 @@
 import { Loader2, Pin } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { api, isConnected } from '../data/api';
+import { api, canManage, isConnected } from '../data/api';
 import { parseDate, sourceName, type Issue, type Title } from '../data/mock';
 import { notifyLibrary } from '../data/store';
 import { useToast } from './Toast';
@@ -93,6 +93,8 @@ export function ReleaseDateCell({ title, issue, onChanged }: { title: Title; iss
 
   const label = parseDate(issue.releaseDate).toLocaleDateString(undefined, { dateStyle: 'medium' });
   if (!isConnected() || issue.serverId == null) return <span>{label}</span>;
+
+  if (!canManage()) return <span className="date-cell">{label}</span>;
 
   return (
     <span className="date-cell">

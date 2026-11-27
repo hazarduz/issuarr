@@ -8,7 +8,7 @@ namespace Issuarr.Core.Test.TitleTests;
 internal class FixedClock(DateOnly today) : IClock
 {
     public DateOnly Today { get; } = today;
-    public DateTime UtcNow => Today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+    public DateTime UtcNow { get; set; } = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 }
 
 /// <summary>Runs against a real (temporary) SQLite database with migrations applied.</summary>

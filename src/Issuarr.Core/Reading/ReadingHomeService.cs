@@ -13,7 +13,7 @@ public record ReadingHome(
 
 public interface IReadingHomeService
 {
-    ReadingHome Get(int limit = 20);
+    ReadingHome Get(int userId, int limit = 20);
 }
 
 /// <summary>Builds the Home page shelves (Plex's "On Deck"): what you're reading, what's next, what's new.</summary>
@@ -21,13 +21,13 @@ public class ReadingHomeService(IReadProgressRepository progress, IIssueReposito
 {
     public const double Finished = 98;
 
-    public ReadingHome Get(int limit = 20)
+    public ReadingHome Get(int userId, int limit = 20)
     {
         var titleMap = titles.All().ToDictionary(t => t.Id);
         var allIssues = issues.All(); // excludes hidden
         var issueMap = allIssues.ToDictionary(i => i.Id);
         var fileMap = files.All().ToDictionary(f => f.Id);
-        var saved = progress.All(); // newest first
+        var saved = progress.All(userId); // newest first
 
         ShelfItem? Item(int issueId, double? percent, string? when)
         {

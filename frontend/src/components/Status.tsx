@@ -1,3 +1,4 @@
+import { canManage } from '../data/api';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import type { IssueStatus, Title } from '../data/mock';
 
@@ -42,6 +43,8 @@ export function ProgressBar({
 }
 
 export function MonitorToggle({ on, onClick }: { on: boolean; onClick?: () => void }) {
+  // Monitoring decides what gets downloaded, so readers don't see it.
+  if (!canManage()) return null;
   return (
     <button className={`mon-toggle ${on ? 'on' : ''}`} onClick={onClick} title={on ? 'Monitored' : 'Unmonitored'}>
       {on ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}

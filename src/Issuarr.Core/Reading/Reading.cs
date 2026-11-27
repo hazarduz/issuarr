@@ -8,6 +8,7 @@ namespace Issuarr.Core.Reading;
 
 public class ReadProgress
 {
+    public int UserId { get; set; } = Users.User.OwnerId;
     public int IssueId { get; set; }
 
     /// <summary>Page number for comics/PDFs, an EPUB CFI for books.</summary>
@@ -17,33 +18,34 @@ public class ReadProgress
     public string Updated { get; set; } = "";
 }
 
+/// <summary>Each user's place in each issue/book.</summary>
 public interface IReadProgressRepository
 {
-    ReadProgress? Get(int issueId);
-    List<ReadProgress> All();
-    Dictionary<int, double> PercentByIssue(IEnumerable<int> issueIds);
+    ReadProgress? Get(int userId, int issueId);
+    List<ReadProgress> All(int userId);
+    Dictionary<int, double> PercentByIssue(int userId, IEnumerable<int> issueIds);
     void Save(ReadProgress progress);
-    void Clear(int issueId);
+    void Clear(int userId, int issueId);
 }
 
 public class ReadProgressRepository(IDatabase db, IClock clock) : IReadProgressRepository
 {
-    public ReadProgress? Get(int issueId)
+    public ReadProgress? Get(int userId, int issueId)
     {
         using var conn = db.Open();
-        return conn.QuerySingleOrDefault<ReadProgress>("SELECT * FROM ReadProgress WHERE IssueId = @issueId", new { issueId });
+        return conn.QuerySingleOrDefault<ReadProgress>("SELECT * FROM ReadProgress WHERE UserId = @userId AND IssueId = @issueId", new { userId, issueId });
     }
 
-    public List<ReadProgress> All()
+    public List<ReadProgress> All(int userId)
     {
         using var conn = db.Open();
-        return conn.Query<ReadProgress>("SELECT * FROM ReadProgress ORDER BY Updated DESC").AsList();
+        return conn.Query<ReadProgress>("SELECT * FROM ReadProgress WHERE UserId = @userId ORDER BY Updated DESC", new { userId }).AsList();
     }
 
-    public Dictionary<int, double> PercentByIssue(IEnumerable<int> issueIds)
+    public Dictionary<int, double> PercentByIssue(int userId, IEnumerable<int> issueIds)
     {
         using var conn = db.Open();
-        return conn.Query<(int IssueId, double Percent)>("SELECT IssueId, Percent FROM ReadProgress WHERE IssueId IN @issueIds", new { issueIds })
+        return conn.Query<(int IssueId, double Percent)>("SELECT IssueId, Percent FROM ReadProgress WHERE UserId = @userId AND IssueId IN @issueIds", new { userId, issueIds })
             .ToDictionary(x => x.IssueId, x => x.Percent);
     }
 
@@ -54,16 +56,16 @@ public class ReadProgressRepository(IDatabase db, IClock clock) : IReadProgressR
         using var conn = db.Open();
         conn.Execute(
             """
-            INSERT INTO ReadProgress (IssueId, Position, Percent, Updated) VALUES (@IssueId, @Position, @Percent, @Updated)
-            ON CONFLICT(IssueId) DO UPDATE SET Position = excluded.Position, Percent = excluded.Percent, Updated = excluded.Updated
+            INSERT INTO ReadProgress (UserId, IssueId, Position, Percent, Updated) VALUES (@UserId, @IssueId, @Position, @Percent, @Updated)
+            ON CONFLICT(UserId, IssueId) DO UPDATE SET Position = excluded.Position, Percent = excluded.Percent, Updated = excluded.Updated
             """,
             p);
     }
 
-    public void Clear(int issueId)
+    public void Clear(int userId, int issueId)
     {
         using var conn = db.Open();
-        conn.Execute("DELETE FROM ReadProgress WHERE IssueId = @issueId", new { issueId });
+        conn.Execute("DELETE FROM ReadProgress WHERE UserId = @userId AND IssueId = @issueId", new { userId, issueId });
     }
 }
 

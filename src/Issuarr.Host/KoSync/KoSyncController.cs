@@ -27,7 +27,7 @@ public class KoSyncController(IKoSyncService sync) : ControllerBase
     [HttpPost("users/create")]
     public IActionResult Create([FromBody] Dictionary<string, string> body)
     {
-        if (sync.Authorized(body.GetValueOrDefault("username"), body.GetValueOrDefault("password")))
+        if (sync.Authenticate(body.GetValueOrDefault("username"), body.GetValueOrDefault("password")) != null)
         {
             return StatusCode(StatusCodes.Status201Created, new { username = body["username"] });
         }
@@ -35,17 +35,17 @@ public class KoSyncController(IKoSyncService sync) : ControllerBase
         return StatusCode(StatusCodes.Status402PaymentRequired, new
         {
             code = 2005,
-            message = "Set the sync username and password in Issuarr (Settings → General → KOReader Sync), then use Login.",
+            message = "Set a KOReader sync password in Issuarr (your account menu → My Account), then use Login with your Issuarr username.",
         });
     }
 
     [HttpGet("users/auth")]
-    public IActionResult Auth() => Authorized() ? Ok(new { authorized = "OK" }) : Unauthorized401();
+    public IActionResult Auth() => UserId() != null ? Ok(new { authorized = "OK" }) : Unauthorized401();
 
     [HttpPut("syncs/progress")]
     public IActionResult Put([FromBody] KoProgressRequest req)
     {
-        if (!Authorized())
+        if (UserId() is not { } userId)
         {
             return Unauthorized401();
         }
@@ -62,6 +62,7 @@ public class KoSyncController(IKoSyncService sync) : ControllerBase
             Percentage = req.Percentage,
             Device = req.Device,
             DeviceId = req.DeviceId,
+            UserId = userId,
         });
         return Ok(new { document = req.Document, timestamp });
     }
@@ -69,12 +70,12 @@ public class KoSyncController(IKoSyncService sync) : ControllerBase
     [HttpGet("syncs/progress/{document}")]
     public IActionResult Get(string document)
     {
-        if (!Authorized())
+        if (UserId() is not { } userId)
         {
             return Unauthorized401();
         }
 
-        var r = sync.Get(document.Trim().ToLowerInvariant());
+        var r = sync.Get(userId, document.Trim().ToLowerInvariant());
         if (r == null)
         {
             return Ok(new { });
@@ -91,8 +92,8 @@ public class KoSyncController(IKoSyncService sync) : ControllerBase
         });
     }
 
-    private bool Authorized() =>
-        sync.Authorized(Request.Headers["x-auth-user"].FirstOrDefault(), Request.Headers["x-auth-key"].FirstOrDefault());
+    private int? UserId() =>
+        sync.Authenticate(Request.Headers["x-auth-user"].FirstOrDefault(), Request.Headers["x-auth-key"].FirstOrDefault());
 
     private ObjectResult Unauthorized401() => StatusCode(StatusCodes.Status401Unauthorized, new { code = 2001, message = "Unauthorized" });
 }

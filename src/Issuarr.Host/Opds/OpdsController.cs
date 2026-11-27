@@ -1,3 +1,4 @@
+using Issuarr.Host.Authentication;
 using System.Text;
 using System.Xml.Linq;
 using Issuarr.Core.Configuration;
@@ -102,12 +103,12 @@ public class OpdsController(
     [HttpGet("reading")]
     public IActionResult Reading()
     {
-        var shelves = home.Get(50);
+        var shelves = home.Get(HttpContext.UserId(), 50);
         return ShelfFeed("reading", "Continue Reading", shelves.ContinueReading.Concat(shelves.UpNext));
     }
 
     [HttpGet("recent")]
-    public IActionResult Recent() => ShelfFeed("recent", "Recently Added", home.Get(50).RecentlyAdded);
+    public IActionResult Recent() => ShelfFeed("recent", "Recently Added", home.Get(HttpContext.UserId(), 50).RecentlyAdded);
 
     [HttpGet("file/{issueId:int}")]
     public IActionResult File(int issueId)

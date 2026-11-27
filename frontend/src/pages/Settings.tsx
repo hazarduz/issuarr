@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useParams } from 'react-router-dom';
 import { FolderPicker } from '../components/FolderPicker';
 import { ProviderList } from '../components/Providers';
+import { UsersSettings } from '../components/UsersSettings';
 import { useToast } from '../components/Toast';
 import { Grow, Tool, Toolbar } from '../components/Toolbar';
 import { api, formatBytes, isConnected, kosyncUrl, opdsUrl, serverInfo, type HostConfig, type QualityProfile, type RootFolder } from '../data/api';
@@ -14,6 +15,7 @@ const sections = [
   { id: 'downloadclients', label: 'Download Clients' },
   { id: 'connect', label: 'Connect' },
   { id: 'general', label: 'General' },
+  { id: 'users', label: 'Users' },
 ];
 
 /** Settings stored in the database, shared by several sections. */
@@ -493,10 +495,13 @@ function General({ cfg, host, setHost }: { cfg: Config; host: HostConfig | null;
                 </button>
               </div>
             </Row>
-            <Row label="Sync username">
+            <Row label="Other people" help="Everyone you invite (Settings → Users) sets their own sync password in My Account and logs in to KOReader with their Issuarr username, so each person keeps their own place.">
+              <span />
+            </Row>
+            <Row label="Your sync username">
               <input className="input" autoComplete="off" value={v.kosyncUsername ?? ''} onChange={(e) => cfg.set('kosyncUsername', e.target.value)} />
             </Row>
-            <Row label="Sync password" help={v.kosyncKey ? 'Set. Type a new one to change it.' : 'Pick a password just for KOReader sync (KOReader sends it as an MD5 hash, so don’t reuse an important one).'}>
+            <Row label="Your sync password" help={v.kosyncKey ? 'Set. Type a new one to change it.' : 'Pick a password just for KOReader sync (KOReader sends it as an MD5 hash, so don’t reuse an important one).'}>
               <input className="input" type="password" autoComplete="new-password" value={v.kosyncPassword ?? ''} placeholder={v.kosyncKey ? '••••••••' : ''} onChange={(e) => cfg.set('kosyncPassword', e.target.value)} />
             </Row>
             <Row label="In KOReader">
@@ -611,6 +616,7 @@ export default function Settings() {
         {isConnected() && current.id === 'downloadclients' && <DownloadClients cfg={cfg} />}
         {isConnected() && current.id === 'connect' && <ProviderList kind="notification" />}
         {isConnected() && current.id === 'general' && <General cfg={cfg} host={host} setHost={setHostState} />}
+        {isConnected() && current.id === 'users' && <UsersSettings />}
         {showsSave && dirty && (
           <div className="import-bar">
             <span className="muted" style={{ marginLeft: 'auto' }}>

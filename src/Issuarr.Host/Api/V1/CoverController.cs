@@ -1,3 +1,4 @@
+using Issuarr.Host.Authentication;
 using Issuarr.Core.MediaFiles;
 using Issuarr.Core.Reading;
 using Issuarr.Core.Titles;
@@ -70,7 +71,7 @@ public class CoverController(ICoverService covers, ITitleService titles, IReadin
 
     /// <summary>Home page shelves: continue reading, up next, recently added.</summary>
     [HttpGet("reading/home")]
-    public ReadingHome Home() => home.Get();
+    public ReadingHome Home() => home.Get(HttpContext.UserId());
 
     private async Task<IActionResult> Run(Func<Task> action)
     {

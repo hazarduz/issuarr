@@ -1,3 +1,4 @@
+using Issuarr.Host.Authentication;
 using Issuarr.Core.Issues;
 using Issuarr.Core.Reading;
 using Issuarr.Core.Titles;
@@ -48,7 +49,7 @@ public class ReadController(IIssueRepository issues, IIssueFileRepository files,
         // Neighbouring issues/books with files, for "next issue" navigation.
         var withFiles = issues.GetByTitle(r.Title.Id).Where(i => i.IssueFileId != null).OrderBy(i => i.SortKey).ToList();
         var index = withFiles.FindIndex(i => i.Id == issueId);
-        var saved = progress.Get(issueId);
+        var saved = progress.Get(HttpContext.UserId(), issueId);
 
         return new
         {
@@ -120,14 +121,14 @@ public class ReadController(IIssueRepository issues, IIssueFileRepository files,
             return NotFound();
         }
 
-        progress.Save(new ReadProgress { IssueId = issueId, Position = req.Position, Percent = req.Percent });
+        progress.Save(new ReadProgress { UserId = HttpContext.UserId(), IssueId = issueId, Position = req.Position, Percent = req.Percent });
         return Ok();
     }
 
     [HttpDelete("{issueId:int}/progress")]
     public IActionResult ClearProgress(int issueId)
     {
-        progress.Clear(issueId);
+        progress.Clear(HttpContext.UserId(), issueId);
         return Ok();
     }
 

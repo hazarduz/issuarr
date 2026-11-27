@@ -5,7 +5,7 @@ using Issuarr.Core.Titles;
 namespace Issuarr.Host.Api.V1;
 
 /// <summary>Builds API resources from models, including derived status and statistics.</summary>
-public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files, IClock clock, Issuarr.Core.Decisions.IPendingDownloads pending, Issuarr.Core.Reading.IReadProgressRepository progress)
+public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files, IClock clock, Issuarr.Core.Decisions.IPendingDownloads pending, Issuarr.Core.Reading.IReadProgressRepository progress, IHttpContextAccessor http)
 {
     public List<TitleResource> Titles(IEnumerable<Title> titles, bool includeIssues)
     {
@@ -44,7 +44,7 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
 
     private TitleResource Title(Title title, List<Issue> titleIssues, IReadOnlyDictionary<int, IssueFile> fileMap, bool includeIssues)
     {
-        var read = includeIssues ? progress.PercentByIssue(titleIssues.Where(i => i.IssueFileId != null).Select(i => i.Id)) : null;
+        var read = includeIssues ? progress.PercentByIssue(Issuarr.Host.Authentication.CurrentUser.UserId(http.HttpContext!), titleIssues.Where(i => i.IssueFileId != null).Select(i => i.Id)) : null;
         var mapped = titleIssues.Select(i => Issue(i, title, fileMap, read)).ToList();
         var aired = mapped.Where(i => i.Status != IssueStatus.Unaired).ToList();
         // Like Sonarr: the total is aired issues you want (monitored) plus any you already have.

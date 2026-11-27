@@ -1,20 +1,11 @@
-import {
-  ArrowDownUp,
-  Filter,
-  LayoutGrid,
-  List,
-  Plus,
-  RefreshCw,
-  Rows3,
-  Search as SearchIcon,
-} from 'lucide-react';
+import { ArrowDownUp, Filter, LayoutGrid, List, Plus, RefreshCw, Rows3, Search as SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Cover } from '../components/Cover';
 import { MonitorToggle, ProgressBar } from '../components/Status';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
 import { useToast } from '../components/Toast';
-import { api, isConnected } from '../data/api';
+import { api, isConnected, canManage } from '../data/api';
 import { kindLabel, kindPlural, parseDate, stats, titles, type Kind, type Title } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
@@ -26,10 +17,22 @@ const filters: { id: FilterId; label: string; test: (t: Title) => boolean }[] = 
   { id: 'all', label: 'All', test: () => true },
   { id: 'monitored', label: 'Monitored only', test: (t) => t.monitored },
   { id: 'unmonitored', label: 'Unmonitored', test: (t) => !t.monitored },
-  { id: 'missing', label: 'Missing issues', test: (t) => stats(t).missing > 0 },
-  { id: 'continuing', label: 'Continuing', test: (t) => t.status === 'continuing' },
+  {
+    id: 'missing',
+    label: 'Missing issues',
+    test: (t) => stats(t).missing > 0,
+  },
+  {
+    id: 'continuing',
+    label: 'Continuing',
+    test: (t) => t.status === 'continuing',
+  },
   { id: 'ended', label: 'Ended', test: (t) => t.status === 'ended' },
-  { id: 'unmatched', label: 'Not matched to a metadata source', test: (t) => !t.metadataSource },
+  {
+    id: 'unmatched',
+    label: 'Not matched to a metadata source',
+    test: (t) => !t.metadataSource,
+  },
 ];
 
 function readView(): View {
@@ -42,7 +45,10 @@ function readView(): View {
 
 function fmtDate(d?: string) {
   if (!d) return '—';
-  return parseDate(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return parseDate(d).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
 }
 
 export default function Library() {
@@ -81,15 +87,19 @@ export default function Library() {
     const s = [...l];
     if (sort === 'name') s.sort((a, b) => a.name.localeCompare(b.name));
     if (sort === 'missing') s.sort((a, b) => stats(b).missing - stats(a).missing);
-    if (sort === 'next')
-      s.sort((a, b) => (stats(a).next?.releaseDate ?? '9999').localeCompare(stats(b).next?.releaseDate ?? '9999'));
+    if (sort === 'next') s.sort((a, b) => (stats(a).next?.releaseDate ?? '9999').localeCompare(stats(b).next?.releaseDate ?? '9999'));
     if (sort === 'added') s.sort((a, b) => b.year - a.year);
     return s;
     // eslint-disable-next-line
   }, [kind, sort, filter, titles.length, titles.map((t) => `${t.monitored}${t.issues.length}`).join()]);
 
   const sorts: Sort[] = ['name', 'missing', 'next', 'added'];
-  const sortLabel: Record<Sort, string> = { name: 'Title', missing: 'Missing', next: 'Next Issue', added: 'Year' };
+  const sortLabel: Record<Sort, string> = {
+    name: 'Title',
+    missing: 'Missing',
+    next: 'Next Issue',
+    added: 'Year',
+  };
 
   const refresh = async () => {
     if (!isConnected()) return toast('Not available with sample data. Run the Issuarr backend to use this.', 'error');
@@ -123,11 +133,15 @@ export default function Library() {
     t.monitored = !t.monitored;
     notifyLibrary();
     if (isConnected()) {
-      api.updateTitle(t, { monitored: t.monitored }).then(() => api.loadTitle(t.id)).then(notifyLibrary).catch(() => {
-        t.monitored = !t.monitored;
-        notifyLibrary();
-        toast('Could not save', 'error');
-      });
+      api
+        .updateTitle(t, { monitored: t.monitored })
+        .then(() => api.loadTitle(t.id))
+        .then(notifyLibrary)
+        .catch(() => {
+          t.monitored = !t.monitored;
+          notifyLibrary();
+          toast('Could not save', 'error');
+        });
     }
   };
 
@@ -144,9 +158,13 @@ export default function Library() {
   return (
     <>
       <Toolbar>
-        <Tool icon={RefreshCw} label="Update All" onClick={refresh} spin={refreshing} />
-        <Tool icon={SearchIcon} label="Search Missing" spin={searching} onClick={searchMissing} />
-        <Tool icon={Plus} label="Add New" onClick={() => navigate('/add')} />
+        {canManage() && (
+          <>
+            <Tool icon={RefreshCw} label="Update All" onClick={refresh} spin={refreshing} />
+            <Tool icon={SearchIcon} label="Search Missing" spin={searching} onClick={searchMissing} />
+            <Tool icon={Plus} label="Add New" onClick={() => navigate('/add')} />
+          </>
+        )}
         <Grow />
         <div className="segmented" style={{ marginRight: 8 }}>
           {(['all', 'comic', 'magazine', 'book'] as const).map((k) => (
@@ -160,11 +178,7 @@ export default function Library() {
         <Tool icon={Rows3} label="Overview" on={view === 'overview'} onClick={() => setView('overview')} />
         <Tool icon={List} label="Table" on={view === 'table'} onClick={() => setView('table')} />
         <Sep />
-        <Tool
-          icon={ArrowDownUp}
-          label={`Sort: ${sortLabel[sort]}`}
-          onClick={() => setSort(sorts[(sorts.indexOf(sort) + 1) % sorts.length])}
-        />
+        <Tool icon={ArrowDownUp} label={`Sort: ${sortLabel[sort]}`} onClick={() => setSort(sorts[(sorts.indexOf(sort) + 1) % sorts.length])} />
         <div className="rel-wrap" ref={filterRef}>
           <Tool icon={Filter} label={filter === 'all' ? 'Filter' : filters.find((f) => f.id === filter)!.label} on={filter !== 'all'} onClick={() => setFilterOpen((o) => !o)} />
           {filterOpen && (
@@ -212,7 +226,13 @@ export default function Library() {
               {titles.length === 0 && (
                 <>
                   <p>Add a comic series or magazine to start tracking issues, or import a collection you already have.</p>
-                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      justifyContent: 'center',
+                    }}
+                  >
                     <button className="btn primary" onClick={() => navigate('/add')}>
                       <Plus size={16} /> Add New
                     </button>

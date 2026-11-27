@@ -1,9 +1,10 @@
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { ToastProvider } from './components/Toast';
-import { bootstrap } from './data/api';
+import { bootstrap, canManage } from './data/api';
+import Account from './pages/Account';
 import Activity from './pages/Activity';
 import AddNew from './pages/AddNew';
 import Calendar from './pages/Calendar';
@@ -27,6 +28,9 @@ try {
 
 await bootstrap();
 
+/** Pages only admins use; readers are sent Home. */
+const admin = (page: React.ReactNode) => (canManage() ? page : <Navigate to="/" replace />);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
@@ -43,15 +47,16 @@ createRoot(document.getElementById('root')!).render(
           <Route element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="library" element={<Library />} />
-            <Route path="add" element={<AddNew />} />
-            <Route path="import" element={<LibraryImport />} />
+            <Route path="add" element={admin(<AddNew />)} />
+            <Route path="import" element={admin(<LibraryImport />)} />
             <Route path="title/:slug" element={<TitleDetail />} />
             <Route path="calendar" element={<Calendar />} />
-            <Route path="activity/*" element={<Activity />} />
-            <Route path="wanted/*" element={<Wanted />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="settings/:section" element={<Settings />} />
-            <Route path="system" element={<System />} />
+            <Route path="activity/*" element={admin(<Activity />)} />
+            <Route path="wanted/*" element={admin(<Wanted />)} />
+            <Route path="settings" element={admin(<Settings />)} />
+            <Route path="settings/:section" element={admin(<Settings />)} />
+            <Route path="system" element={admin(<System />)} />
+            <Route path="account" element={<Account />} />
           </Route>
         </Routes>
       </ToastProvider>

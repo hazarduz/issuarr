@@ -72,12 +72,13 @@ public class ConfigFile
 
     public bool VerifyPassword(string username, string password)
     {
-        if (!string.Equals(username, Username, StringComparison.OrdinalIgnoreCase) || PasswordHash.Length == 0)
-        {
-            return false;
-        }
+        return string.Equals(username, Username, StringComparison.OrdinalIgnoreCase) && VerifyHash(PasswordHash, password);
+    }
 
-        var parts = PasswordHash.Split('$');
+    /// <summary>Checks a password against a hash made by <see cref="HashPassword"/>.</summary>
+    public static bool VerifyHash(string hashed, string password)
+    {
+        var parts = hashed.Split('$');
         if (parts.Length != 4 || parts[0] != "pbkdf2")
         {
             return false;

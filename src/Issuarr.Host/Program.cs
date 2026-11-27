@@ -63,6 +63,8 @@ public class Program
         services.AddSingleton<IIssueManagementService, IssueManagementService>();
         services.AddSingleton<Issuarr.Core.MediaFiles.IDiskScanService, Issuarr.Core.MediaFiles.DiskScanService>();
         services.AddSingleton<Issuarr.Core.MediaFiles.ICoverService, Issuarr.Core.MediaFiles.CoverService>();
+        services.AddSingleton<Issuarr.Core.Users.IUserService, Issuarr.Core.Users.UserService>();
+        services.AddHttpContextAccessor();
         services.AddSingleton<Issuarr.Core.Reading.IReadingHomeService, Issuarr.Core.Reading.ReadingHomeService>();
         services.AddSingleton<Issuarr.Core.Reading.IKoSyncService, Issuarr.Core.Reading.KoSyncService>();
         services.AddSingleton<IRootFolderService, RootFolderService>();
@@ -173,10 +175,12 @@ public class Program
 
         // Lets the UI discover where the API lives and which key to use (Sonarr's initialize.json).
         // AuthGate only lets this through for logged-in users (or when login is off).
-        app.MapGet("/initialize.json", () => Results.Json(new
+        // The API key is the owner's master key, so only admins get it; readers use their login cookie.
+        app.MapGet("/initialize.json", (HttpContext ctx) => Results.Json(new
         {
             apiRoot = config.UrlBase + "/api/v1",
-            apiKey = config.ApiKey,
+            apiKey = ctx.IssuarrUser() is { IsAdmin: true } ? config.ApiKey : null,
+            user = ctx.IssuarrUser() is { } u ? new { id = u.Id, username = u.Username, role = u.Role, isOwner = u.IsOwner, loggedIn = ctx.User.Identity?.IsAuthenticated == true } : null,
             urlBase = config.UrlBase,
             instanceName = config.InstanceName,
             version = SystemController.Version,

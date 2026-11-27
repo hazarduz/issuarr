@@ -1,29 +1,29 @@
-import {
-  Activity,
-  BookOpen,
-  CalendarDays,
-  Cog,
-  HeartPulse,
-  Menu,
-  Moon,
-  Search,
-  Sun,
-  TriangleAlert,
-  Bell,
-  House,
-  CheckCircle2,
-  CircleAlert,
-  Info,
-} from 'lucide-react';
+import { Activity, BookOpen, CalendarDays, Cog, HeartPulse, Menu, Moon, Search, Sun, TriangleAlert, Bell, House, CheckCircle2, CircleAlert, Info, LogOut, UserRound, Users } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { queue, titles, kindLabel, stats } from '../data/mock';
 import { Cover } from './Cover';
-import { api, isConnected, serverInfo, type HealthItem } from '../data/api';
+import { api, canManage, currentUser, isConnected, serverInfo, type HealthItem } from '../data/api';
 import { useLibraryVersion } from '../data/store';
 
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof House;
+  home?: boolean;
+  end?: boolean;
+  count?: number;
+  sub?: { to: string; label: string }[];
+};
 
-const buildNav = (missingCount: number, queueCount: number) => [
+/** What a reader (an invited friend) sees: browsing and reading only. */
+const readerNav: NavItem[] = [
+  { to: '/', label: 'Home', icon: House, home: true },
+  { to: '/library', label: 'Library', icon: BookOpen, end: true },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays },
+];
+
+const buildNav = (missingCount: number, queueCount: number): NavItem[] => [
   { to: '/', label: 'Home', icon: House, home: true },
   {
     to: '/library',
@@ -68,6 +68,7 @@ const buildNav = (missingCount: number, queueCount: number) => [
       { to: '/settings/downloadclients', label: 'Download Clients' },
       { to: '/settings/connect', label: 'Connect' },
       { to: '/settings/general', label: 'General' },
+      { to: '/settings/users', label: 'Users' },
     ],
   },
   { to: '/system', label: 'System', icon: HeartPulse },
@@ -90,6 +91,54 @@ function useTheme() {
     }
   }, [theme]);
   return [theme, () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))] as const;
+}
+
+function AccountMenu() {
+  const user = currentUser();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+  if (!user) return null;
+  const base = serverInfo()?.urlBase ?? '';
+  return (
+    <div className="rel-wrap" ref={ref}>
+      <button className="avatar-btn" aria-label="Account" title={user.username} onClick={() => setOpen((o) => !o)}>
+        {user.username.slice(0, 1).toUpperCase()}
+      </button>
+      {open && (
+        <div className="menu account-pop">
+          <div className="account-head">
+            <div style={{ fontWeight: 600 }}>{user.username}</div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              {user.isOwner ? 'Owner' : user.role === 'admin' ? 'Admin' : 'Reader'}
+              {!user.loggedIn && ' · not logged in'}
+            </div>
+          </div>
+          <Link to="/account" onClick={() => setOpen(false)}>
+            <UserRound size={15} /> My Account
+          </Link>
+          {user.role === 'admin' && (
+            <Link to="/settings/users" onClick={() => setOpen(false)}>
+              <Users size={15} /> Users
+            </Link>
+          )}
+          {user.loggedIn ? (
+            <a href={`${base}/logout`}>
+              <LogOut size={15} /> Log out
+            </a>
+          ) : (
+            <a href={`${base}/login`}>
+              <LogOut size={15} /> Log in as someone else
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function GlobalSearch() {
@@ -191,10 +240,16 @@ export function Layout() {
 
   // Poll the queue size and health every 30s for the sidebar badge and the bell.
   useEffect(() => {
-    if (!isConnected()) return;
+    if (!isConnected() || !canManage()) return;
     const poll = () => {
-      api.queue().then((q) => setQueueCount(q.records.length)).catch(() => {});
-      api.health().then(setHealth).catch(() => {});
+      api
+        .queue()
+        .then((q) => setQueueCount(q.records.length))
+        .catch(() => {});
+      api
+        .health()
+        .then(setHealth)
+        .catch(() => {});
     };
     poll();
     const t = setInterval(poll, 30000);
@@ -207,7 +262,12 @@ export function Layout() {
     return () => document.removeEventListener('mousedown', close);
   }, []);
 
-  const nav = buildNav(titles.reduce((n, t) => n + (t.monitored ? stats(t).missing : 0), 0), queueCount);
+  const nav = canManage()
+    ? buildNav(
+        titles.reduce((n, t) => n + (t.monitored ? stats(t).missing : 0), 0),
+        queueCount,
+      )
+    : readerNav;
   const worst = health.some((h) => h.type === 'error') ? 'var(--danger)' : health.some((h) => h.type === 'warning') ? 'var(--warn)' : health.length ? 'var(--info)' : null;
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
@@ -232,37 +292,50 @@ export function Layout() {
             Demo data
           </span>
         )}
-        <div className="rel-wrap" ref={healthRef}>
-          <button className="icon-btn" aria-label="Health" onClick={() => setHealthOpen((o) => !o)}>
-            <Bell size={19} />
-            {worst && <span className="dot" style={{ background: worst }} />}
-          </button>
-          {healthOpen && (
-            <div className="menu health-pop">
-              <div style={{ fontWeight: 600, padding: '6px 10px' }}>Health</div>
-              {!isConnected() && <div className="muted" style={{ padding: 10 }}>Showing sample data. Run the Issuarr backend for live status.</div>}
-              {isConnected() && health.length === 0 && (
-                <div className="health">
-                  <CheckCircle2 size={18} color="var(--ok)" /> Everything looks good
-                </div>
-              )}
-              {health.map((h) => (
-                <Link key={h.source + h.message} to={h.link ?? '/system'} className="health" onClick={() => setHealthOpen(false)} style={{ display: 'flex' }}>
-                  {h.type === 'error' ? <CircleAlert size={18} color="var(--danger)" /> : h.type === 'warning' ? <TriangleAlert size={18} color="var(--warn)" /> : <Info size={18} color="var(--info)" />}
-                  <span style={{ fontSize: 13 }}>{h.message}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        {canManage() && (
+          <div className="rel-wrap" ref={healthRef}>
+            <button className="icon-btn" aria-label="Health" onClick={() => setHealthOpen((o) => !o)}>
+              <Bell size={19} />
+              {worst && <span className="dot" style={{ background: worst }} />}
+            </button>
+            {healthOpen && (
+              <div className="menu health-pop">
+                <div style={{ fontWeight: 600, padding: '6px 10px' }}>Health</div>
+                {!isConnected() && (
+                  <div className="muted" style={{ padding: 10 }}>
+                    Showing sample data. Run the Issuarr backend for live status.
+                  </div>
+                )}
+                {isConnected() && health.length === 0 && (
+                  <div className="health">
+                    <CheckCircle2 size={18} color="var(--ok)" /> Everything looks good
+                  </div>
+                )}
+                {health.map((h) => (
+                  <Link key={h.source + h.message} to={h.link ?? '/system'} className="health" onClick={() => setHealthOpen(false)} style={{ display: 'flex' }}>
+                    {h.type === 'error' ? (
+                      <CircleAlert size={18} color="var(--danger)" />
+                    ) : h.type === 'warning' ? (
+                      <TriangleAlert size={18} color="var(--warn)" />
+                    ) : (
+                      <Info size={18} color="var(--info)" />
+                    )}
+                    <span style={{ fontSize: 13 }}>{h.message}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
         </button>
+        <AccountMenu />
       </header>
 
       <nav className={`sidebar ${menuOpen ? 'open' : ''}`}>
         {nav.map((item) => {
-          const active = 'home' in item
+          const active = item.home
             ? location.pathname === '/'
             : item.end
               ? location.pathname.startsWith('/library') || location.pathname.startsWith('/title') || ['/add', '/import'].includes(location.pathname)

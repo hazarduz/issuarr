@@ -122,7 +122,7 @@ public class CoversAndHomeFixture
         var home = new ReadingHomeService(_progress, _issues, _files, _titles);
 
         _progress.Save(new ReadProgress { IssueId = ids[0], Position = "end", Percent = 100 });
-        var h1 = home.Get();
+        var h1 = home.Get(Issuarr.Core.Users.User.OwnerId);
         Assert.That(h1.ContinueReading, Is.Empty);
         Assert.That(h1.UpNext.Single().Number, Is.EqualTo("#2"), "after finishing #1, #2 is up next");
         Assert.That(h1.RecentlyAdded.First().Number, Is.EqualTo("#4"));
@@ -131,7 +131,7 @@ public class CoversAndHomeFixture
         Assert.That(h1.LatestBooks, Is.Empty);
 
         _progress.Save(new ReadProgress { IssueId = ids[1], Position = "5", Percent = 40 });
-        var h2 = home.Get();
+        var h2 = home.Get(Issuarr.Core.Users.User.OwnerId);
         Assert.That(h2.ContinueReading.Single().Number, Is.EqualTo("#2"));
         Assert.That(h2.ContinueReading.Single().Percent, Is.EqualTo(40));
         Assert.That(h2.UpNext, Is.Empty, "a title you're in the middle of isn't also up next");

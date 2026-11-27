@@ -31,7 +31,7 @@ import { MonitorToggle, ProgressBar, StatusPill } from '../components/Status';
 import { DeleteTitleDialog, EditTitleDialog, FilesDialog, HistoryDialog, InteractiveSearchDialog, RenameDialog } from '../components/TitleDialogs';
 import { useToast } from '../components/Toast';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
-import { api, isConnected } from '../data/api';
+import { api, canManage, isConnected } from '../data/api';
 import { itemWord, kindLabel, parseDate, sourceName, stats, titles, type Issue } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
@@ -94,6 +94,7 @@ export default function TitleDetail() {
 
   const s = stats(title);
   const live = isConnected();
+  const manage = canManage();
 
   /** Run a background command with a spinner on the button that started it. */
   const run = async (key: string, name: string, issueIds?: number[], startMsg?: string) => {
@@ -129,11 +130,15 @@ export default function TitleDetail() {
     notifyLibrary();
     toast(value ? 'Title monitored' : 'Title unmonitored');
     if (live) {
-      api.updateTitle(title, { monitored: value }).then(() => api.loadTitle(title.id)).then(notifyLibrary).catch(() => {
-        title.monitored = !value;
-        notifyLibrary();
-        toast('Could not save monitoring change', 'error');
-      });
+      api
+        .updateTitle(title, { monitored: value })
+        .then(() => api.loadTitle(title.id))
+        .then(notifyLibrary)
+        .catch(() => {
+          title.monitored = !value;
+          notifyLibrary();
+          toast('Could not save monitoring change', 'error');
+        });
     }
   };
 
@@ -165,24 +170,28 @@ export default function TitleDetail() {
           <BookOpenText size={15} />
         </button>
       )}
-      <button className="icon-btn" style={{ width: 30, height: 30 }} title={`Match or edit this ${itemWord(title.kind)}`} onClick={needsLive({ matchItem: i })}>
-        <Link2 size={15} />
-      </button>
-      <button className="icon-btn danger-hover" style={{ width: 30, height: 30 }} title={`Delete this ${itemWord(title.kind)}`} onClick={needsLive({ deleteItem: i })}>
-        <Trash2 size={15} />
-      </button>
-      <button
-        className="icon-btn"
-        style={{ width: 30, height: 30 }}
-        title="Automatic search"
-        onClick={() => run(`issue-${i.id}`, 'IssueSearch', i.serverId != null ? [i.serverId] : [], `Searching for ${title.name} ${i.number}…`)}
-      >
-        {busy[`issue-${i.id}`] ? <Loader2 size={15} className="spin-icon" /> : <Search size={15} />}
-      </button>
-      {!compact && (
-        <button className="icon-btn" style={{ width: 30, height: 30 }} title="Interactive search" onClick={needsLive({ search: i })}>
-          <User size={15} />
-        </button>
+      {manage && (
+        <>
+          <button className="icon-btn" style={{ width: 30, height: 30 }} title={`Match or edit this ${itemWord(title.kind)}`} onClick={needsLive({ matchItem: i })}>
+            <Link2 size={15} />
+          </button>
+          <button className="icon-btn danger-hover" style={{ width: 30, height: 30 }} title={`Delete this ${itemWord(title.kind)}`} onClick={needsLive({ deleteItem: i })}>
+            <Trash2 size={15} />
+          </button>
+          <button
+            className="icon-btn"
+            style={{ width: 30, height: 30 }}
+            title="Automatic search"
+            onClick={() => run(`issue-${i.id}`, 'IssueSearch', i.serverId != null ? [i.serverId] : [], `Searching for ${title.name} ${i.number}…`)}
+          >
+            {busy[`issue-${i.id}`] ? <Loader2 size={15} className="spin-icon" /> : <Search size={15} />}
+          </button>
+          {!compact && (
+            <button className="icon-btn" style={{ width: 30, height: 30 }} title="Interactive search" onClick={needsLive({ search: i })}>
+              <User size={15} />
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -328,17 +337,21 @@ export default function TitleDetail() {
   return (
     <>
       <Toolbar>
-        <Tool icon={RefreshCw} label="Refresh" spin={busy.refresh} onClick={() => run('refresh', 'RefreshTitle', undefined)} />
-        <Tool icon={Search} label="Search Monitored" spin={busy.search} onClick={() => run('search', 'TitleSearch', undefined, `Searching for ${title.name}…`)} />
-        <Tool icon={User} label="Interactive Search" onClick={needsLive({ search: null })} />
-        <Sep />
-        <Tool icon={Wand2} label="Preview Rename" onClick={needsLive('rename')} />
-        <Tool icon={FolderOpen} label="Manage Files" onClick={needsLive('files')} />
-        <Tool icon={History} label="History" onClick={needsLive('history')} />
-        <Sep />
-        <Tool icon={Link2} label={title.metadataSource ? 'Rematch' : 'Match'} onClick={needsLive('match')} />
-        <Tool icon={Pencil} label="Edit" onClick={needsLive('edit')} />
-        <Tool icon={Trash2} label="Delete" onClick={needsLive('delete')} />
+        {manage && (
+          <>
+            <Tool icon={RefreshCw} label="Refresh" spin={busy.refresh} onClick={() => run('refresh', 'RefreshTitle', undefined)} />
+            <Tool icon={Search} label="Search Monitored" spin={busy.search} onClick={() => run('search', 'TitleSearch', undefined, `Searching for ${title.name}…`)} />
+            <Tool icon={User} label="Interactive Search" onClick={needsLive({ search: null })} />
+            <Sep />
+            <Tool icon={Wand2} label="Preview Rename" onClick={needsLive('rename')} />
+            <Tool icon={FolderOpen} label="Manage Files" onClick={needsLive('files')} />
+            <Tool icon={History} label="History" onClick={needsLive('history')} />
+            <Sep />
+            <Tool icon={Link2} label={title.metadataSource ? 'Rematch' : 'Match'} onClick={needsLive('match')} />
+            <Tool icon={Pencil} label="Edit" onClick={needsLive('edit')} />
+            <Tool icon={Trash2} label="Delete" onClick={needsLive('delete')} />
+          </>
+        )}
         <Grow />
         <Tool icon={List} label="List" on={view === 'list'} onClick={() => setView('list')} />
         <Tool icon={Rows3} label="Detailed" on={view === 'detailed'} onClick={() => setView('detailed')} />
@@ -346,13 +359,20 @@ export default function TitleDetail() {
       </Toolbar>
 
       <section className="hero">
-        <div className="hero-bg" style={{ background: `linear-gradient(135deg, ${title.palette[0]}, ${title.palette[1]})` }} />
+        <div
+          className="hero-bg"
+          style={{
+            background: `linear-gradient(135deg, ${title.palette[0]}, ${title.palette[1]})`,
+          }}
+        />
         <div className="hero-inner">
           <div className="hero-cover">
             <Cover title={title} size="lg" />
-            <button className="btn sm edit-cover" onClick={needsLive('cover')} title="Change the cover">
-              <ImagePlus size={14} /> Edit cover
-            </button>
+            {manage && (
+              <button className="btn sm edit-cover" onClick={needsLive('cover')} title="Change the cover">
+                <ImagePlus size={14} /> Edit cover
+              </button>
+            )}
           </div>
           <div style={{ minWidth: 0 }}>
             <h1>
@@ -375,20 +395,35 @@ export default function TitleDetail() {
                 <HardDrive size={15} /> {s.size}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                flexWrap: 'wrap',
+                marginBottom: 16,
+              }}
+            >
               {title.status === 'ended' ? <span className="pill info">Ended</span> : <span className="pill ok">Continuing</span>}
               {title.metadataSource ? (
-                <span className="pill clickable" title="Change match" onClick={needsLive('match')}>
+                <span className={`pill ${manage ? 'clickable' : ''}`} title={manage ? 'Change match' : undefined} onClick={manage ? needsLive('match') : undefined}>
                   <Link2 size={11} /> {sourceName[title.metadataSource] ?? title.metadataSource}
                 </span>
               ) : (
-                <span
-                  className={`pill ${title.kind === 'magazine' ? '' : 'warn'} clickable`}
-                  title={title.kind === 'book' ? 'Link to Open Library or Google Books for the full book list and covers' : title.kind === 'magazine' ? 'Link to Wikidata or ComicVine for details and cover' : 'Link to ComicVine or Metron for the full issue list, dates and cover'}
-                  onClick={needsLive('match')}
-                >
-                  <Link2 size={11} /> Not matched
-                </span>
+                manage && (
+                  <span
+                    className={`pill ${title.kind === 'magazine' ? '' : 'warn'} clickable`}
+                    title={
+                      title.kind === 'book'
+                        ? 'Link to Open Library or Google Books for the full book list and covers'
+                        : title.kind === 'magazine'
+                          ? 'Link to Wikidata or ComicVine for details and cover'
+                          : 'Link to ComicVine or Metron for the full issue list, dates and cover'
+                    }
+                    onClick={needsLive('match')}
+                  >
+                    <Link2 size={11} /> Not matched
+                  </span>
+                )
               )}
               {title.tags.map((t) => (
                 <span className="tag" key={t}>
@@ -398,12 +433,14 @@ export default function TitleDetail() {
             </div>
             {title.overview && <p className="overview">{title.overview}</p>}
             <div className="info-grid">
-              <div className="info-cell">
-                <div className="k">Path</div>
-                <div className="v mono" title={title.path}>
-                  {title.path}
+              {manage && (
+                <div className="info-cell">
+                  <div className="k">Path</div>
+                  <div className="v mono" title={title.path}>
+                    {title.path}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="info-cell">
                 <div className="k">Quality Profile</div>
                 <div className="v">{title.qualityProfile}</div>
@@ -449,7 +486,13 @@ export default function TitleDetail() {
                 <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>
                   {issues.length} {itemWord(title.kind, issues.length !== 1)}
                 </span>
-                <span onClick={(e) => e.stopPropagation()} style={{ marginLeft: 'auto' }}>
+                <span
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    marginLeft: 'auto',
+                    display: manage ? undefined : 'none',
+                  }}
+                >
                   <button
                     className="icon-btn"
                     style={{ width: 30, height: 30 }}
@@ -469,7 +512,7 @@ export default function TitleDetail() {
             </div>
           );
         })}
-        {(title.serverStats?.hidden ?? 0) > 0 && (
+        {manage && (title.serverStats?.hidden ?? 0) > 0 && (
           <div className="help" style={{ textAlign: 'right', marginBottom: 4 }}>
             {title.serverStats!.hidden} hidden {itemWord(title.kind, title.serverStats!.hidden !== 1)} ·{' '}
             <a
@@ -530,12 +573,7 @@ export default function TitleDetail() {
       {dialog && typeof dialog === 'object' && 'matchItem' in dialog && <ItemMatchDialog title={title} item={dialog.matchItem} onClose={() => setDialog(null)} />}
       {dialog && typeof dialog === 'object' && 'deleteItem' in dialog && <ItemDeleteDialog title={title} item={dialog.deleteItem} onClose={() => setDialog(null)} />}
       {dialog && typeof dialog === 'object' && 'search' in dialog && (
-        <InteractiveSearchDialog
-          title={title}
-          issueId={dialog.search?.serverId}
-          issueLabel={dialog.search?.number}
-          onClose={() => setDialog(null)}
-        />
+        <InteractiveSearchDialog title={title} issueId={dialog.search?.serverId} issueLabel={dialog.search?.number} onClose={() => setDialog(null)} />
       )}
     </>
   );

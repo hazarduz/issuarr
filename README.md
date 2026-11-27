@@ -41,6 +41,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - **Covers:** pick a title's cover from metadata, issue covers or the first page of your own files, upload one, or paste an image address
 - **OPDS catalog** at `/opds` for KOReader (Kobo, Kindle, PocketBook…), Panels, Chunky and other reading apps, with page streaming for comics
 - **KOReader sync:** Issuarr is a KOReader progress sync server; reading on your Kobo updates Continue Reading, and devices pick up where each other left off
+- **Share with friends:** invite people with a one-time link (Settings → Users). Readers can browse, read, download and use OPDS/KOReader, each with their own Continue Reading and reading progress, but can't change anything. Admins get full control
 - **Built-in reader:** read comics (CBZ/CBR/CB7), magazines (PDF) and eBooks (EPUB) in the browser, with reading progress synced across devices; MOBI/AZW3 can be downloaded
 - **Connections:** rescan Komga or Kavita on import; Discord and webhook notifications
 - **Calendar:** month view and an iCal feed for your calendar app
@@ -51,6 +52,17 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 Settings → General shows your catalog address, e.g. `http://192.168.1.10:8788/opds`. Add it to any OPDS app and sign in with your Issuarr username and password.
 
 **Kobo:** the built-in Kobo software doesn't support OPDS. Install [KOReader](https://koreader.rocks) (it runs alongside the Kobo software), then in KOReader go to **Search → OPDS catalog → +** and add the address. KOReader can download books and stream comic pages straight from Issuarr.
+
+### Sharing your library
+
+Settings → **Users** → **Invite** makes a one-time link (it expires after the time you choose). Your friend opens it, picks a username and password, and lands on their own Home page. Login must be on (Settings → General → Security → **Forms**).
+
+- **Reader**: browse the library, read in the browser, download, OPDS and KOReader sync, with their own Continue Reading, Up Next and read badges. No settings, searching, adding or deleting.
+- **Admin**: everything you can do.
+
+With *Disabled for local addresses*, anyone on your home network who isn't logged in is treated as you; friends who log in are always themselves. Invite links use the address you're viewing Issuarr on, so for friends outside your network, make Issuarr reachable from the internet (e.g. a reverse proxy with HTTPS) and send that address.
+
+Each person sets up KOReader sync in **My Account** (the avatar menu) with their own sync password, and uses their Issuarr username and password for OPDS.
 
 ### KOReader progress sync
 
@@ -180,6 +192,8 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/reading/home` | Home shelves: continue reading, up next, recently added |
 | GET / POST / PUT / DELETE | `/api/v1/title/{id}/covers` · `/cover` | Cover candidates / upload (multipart) / from URL `{ url }` / reset |
 | GET / PUT | `/kosync/…` | KOReader sync server (`users/auth`, `syncs/progress`) |
+| GET / PUT / DELETE | `/api/v1/user` · `/user/invite` | Users and invite links (admins) |
+| GET / PUT | `/api/v1/me` · `/me/password` · `/me/kosync` | The signed-in user's own account |
 | GET | `/opds` | OPDS 1.2 catalog (HTTP Basic with your login, or `?apikey=`) |
 | GET | `/feed/v1/calendar/issuarr.ics` | iCal feed |
 | GET | `/api/v1/health` · `/api/v1/system/status` · `/api/v1/system/task` | Health checks, system info, scheduled tasks |

@@ -22,12 +22,14 @@ public class KoSyncRecord
     public string? DeviceId { get; set; }
     public long Timestamp { get; set; }
     public int? IssueId { get; set; }
+    public int UserId { get; set; } = Users.User.OwnerId;
 }
 
 public interface IKoSyncService
 {
-    bool Authorized(string? username, string? key);
-    KoSyncRecord? Get(string document);
+    /// <summary>The Issuarr user a KOReader login belongs to, or null.</summary>
+    int? Authenticate(string? username, string? key);
+    KoSyncRecord? Get(int userId, string document);
     long Save(KoSyncRecord record);
 }
 
@@ -38,30 +40,27 @@ public interface IKoSyncService
 /// </summary>
 public class KoSyncService(
     IDatabase db,
-    IConfigService config,
     IIssueFileRepository files,
     IIssueRepository issues,
     ITitleService titles,
     IReadProgressRepository progress,
     IClock clock,
+    Users.IUserService users,
     ILogger<KoSyncService> log) : IKoSyncService
 {
     private static readonly HashSet<string> Paged = ["PDF", "CBZ", "CBR", "CB7"];
 
-    public bool Authorized(string? username, string? key) =>
-        config.KoSyncEnabled && config.KoSyncUsername.Length > 0 && config.KoSyncKey.Length > 0
-        && string.Equals(username, config.KoSyncUsername, StringComparison.Ordinal)
-        && key != null && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(key.ToLowerInvariant()), Encoding.UTF8.GetBytes(config.KoSyncKey));
+    public int? Authenticate(string? username, string? key) => users.KoSyncUser(username, key)?.Id;
 
-    public KoSyncRecord? Get(string document)
+    public KoSyncRecord? Get(int userId, string document)
     {
         using var conn = db.Open();
-        var stored = conn.QuerySingleOrDefault<KoSyncRecord>("SELECT * FROM KoSyncProgress WHERE Document = @document", new { document });
+        var stored = conn.QuerySingleOrDefault<KoSyncRecord>("SELECT * FROM KoSyncProgress WHERE UserId = @userId AND Document = @document", new { userId, document });
 
         // If the book was read further in Issuarr's own reader since, offer that position
         // (page-based formats only: KOReader positions EPUBs by internal XPointers we can't produce).
         var match = stored?.IssueId is { } known ? (IssueId: known, Format: FormatOf(known)) : Find(document);
-        if (match is { } m && Paged.Contains(m.Format) && progress.Get(m.IssueId) is { } web)
+        if (match is { } m && Paged.Contains(m.Format) && progress.Get(userId, m.IssueId) is { } web)
         {
             var webTime = DateTimeOffset.Parse(web.Updated, CultureInfo.InvariantCulture).ToUnixTimeSeconds();
             if ((stored == null || webTime > stored.Timestamp) && int.TryParse(web.Position, out var page0))
@@ -91,9 +90,9 @@ public class KoSyncService(
         {
             conn.Execute(
                 """
-                INSERT INTO KoSyncProgress (Document, Progress, Percentage, Device, DeviceId, Timestamp, IssueId)
-                VALUES (@Document, @Progress, @Percentage, @Device, @DeviceId, @Timestamp, @IssueId)
-                ON CONFLICT(Document) DO UPDATE SET Progress = excluded.Progress, Percentage = excluded.Percentage,
+                INSERT INTO KoSyncProgress (UserId, Document, Progress, Percentage, Device, DeviceId, Timestamp, IssueId)
+                VALUES (@UserId, @Document, @Progress, @Percentage, @Device, @DeviceId, @Timestamp, @IssueId)
+                ON CONFLICT(UserId, Document) DO UPDATE SET Progress = excluded.Progress, Percentage = excluded.Percentage,
                     Device = excluded.Device, DeviceId = excluded.DeviceId, Timestamp = excluded.Timestamp, IssueId = excluded.IssueId
                 """,
                 record);
@@ -106,7 +105,7 @@ public class KoSyncService(
             var position = Paged.Contains(m.Format) && int.TryParse(record.Progress, out var page)
                 ? Math.Max(0, page - 1).ToString(CultureInfo.InvariantCulture)
                 : "pct:" + record.Percentage.ToString("0.#####", CultureInfo.InvariantCulture);
-            progress.Save(new ReadProgress { IssueId = m.IssueId, Position = position, Percent = percent });
+            progress.Save(new ReadProgress { UserId = record.UserId, IssueId = m.IssueId, Position = position, Percent = percent });
         }
         else
         {

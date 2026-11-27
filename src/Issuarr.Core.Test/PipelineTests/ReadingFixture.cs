@@ -76,9 +76,9 @@ public class ReadingFixture
         repo.Save(new ReadProgress { IssueId = id, Position = "3", Percent = 10 });
         repo.Save(new ReadProgress { IssueId = id, Position = "12", Percent = 140 });
 
-        Assert.That(repo.Get(id)!.Position, Is.EqualTo("12"));
-        Assert.That(repo.PercentByIssue([id])[id], Is.EqualTo(100), "clamped");
-        repo.Clear(id);
-        Assert.That(repo.Get(id), Is.Null);
+        Assert.That(repo.Get(1, id)!.Position, Is.EqualTo("12"));
+        Assert.That(repo.PercentByIssue(1, [id])[id], Is.EqualTo(100), "clamped");
+        repo.Clear(1, id);
+        Assert.That(repo.Get(1, id), Is.Null);
     }
 }

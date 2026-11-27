@@ -8,9 +8,20 @@
  */
 import { history, queue, setToday, titles, type Issue, type IssueStatus, type Title } from './mock';
 
+export interface CurrentUser {
+  id: number;
+  username: string;
+  role: 'admin' | 'reader';
+  isOwner: boolean;
+  /** False when the owner got in without logging in (login off, or on the local network). */
+  loggedIn: boolean;
+}
+
 interface Init {
   apiRoot: string;
-  apiKey: string;
+  /** Only admins get the master API key; readers use their login cookie. */
+  apiKey: string | null;
+  user: CurrentUser | null;
   urlBase: string;
   instanceName: string;
   version: string;
@@ -299,6 +310,11 @@ let init: Init | null = null;
 
 export const isConnected = () => init !== null;
 export const serverInfo = () => init;
+export const currentUser = () => init?.user ?? null;
+/** Admins (and sample-data mode) can change things; readers can only browse and read. */
+export const canManage = () => !init || init.user?.role !== 'reader';
+const keyHeader = (): Record<string, string> => (init?.apiKey ? { 'X-Api-Key': init.apiKey } : {});
+const withKey = (url: string) => (init?.apiKey ? `${url}${url.includes('?') ? '&' : '?'}apikey=${init.apiKey}` : url);
 
 export function formatBytes(bytes: number) {
   if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(1)} TB`;
@@ -333,7 +349,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!init) throw new DemoModeError();
   const res = await fetch(`${init.apiRoot}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey, ...(options.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...keyHeader(), ...((options.headers as Record<string, string>) ?? {}) },
   });
   if (res.status === 401 && init.authentication !== 'none') {
     window.location.href = `${init.urlBase}/login?returnUrl=${encodeURIComponent(window.location.pathname)}`;
@@ -446,7 +462,7 @@ export const api = {
     if (!init) throw new DemoModeError();
     const res = await fetch(`${init.apiRoot}/title/${id}/match`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey },
+      headers: { 'Content-Type': 'application/json', ...keyHeader() },
       body: JSON.stringify({ source, externalId, useMetadataName }),
     });
     if (!res.ok) {
@@ -463,7 +479,7 @@ export const api = {
     if (!init) throw new DemoModeError();
     const res = await fetch(`${init.apiRoot}/title`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey },
+      headers: { 'Content-Type': 'application/json', ...keyHeader() },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -565,8 +581,8 @@ export interface ReadInfo {
 
 export const reader = {
   info: (issueId: number | string) => request<ReadInfo>(`/read/${issueId}`),
-  pageUrl: (issueId: number | string, page: number) => (init ? `${init.apiRoot}/read/${issueId}/page/${page}?apikey=${init.apiKey}` : ''),
-  fileUrl: (issueId: number | string, download = false) => (init ? `${init.apiRoot}/read/${issueId}/file?apikey=${init.apiKey}${download ? '&download=true' : ''}` : ''),
+  pageUrl: (issueId: number | string, page: number) => (init ? withKey(`${init.apiRoot}/read/${issueId}/page/${page}`) : ''),
+  fileUrl: (issueId: number | string, download = false) => (init ? withKey(`${init.apiRoot}/read/${issueId}/file${download ? '?download=true' : ''}`) : ''),
   saveProgress: (issueId: number | string, position: string, percent: number) =>
     request(`/read/${issueId}/progress`, json('PUT', { position, percent })),
   clearProgress: (issueId: number | string) => request(`/read/${issueId}/progress`, { method: 'DELETE' }),
@@ -575,7 +591,7 @@ export const reader = {
 /** Images served by Issuarr itself (custom covers, file pages) need the API key in the URL. */
 export function mediaUrl(url?: string) {
   if (!url || !init || !url.startsWith('/api/')) return url;
-  return `${init.urlBase}${url}${url.includes('?') ? '&' : '?'}apikey=${init.apiKey}`;
+  return withKey(`${init.urlBase}${url}`);
 }
 
 export interface CoverCandidate {
@@ -605,7 +621,7 @@ export const covers = {
     if (!init) throw new DemoModeError();
     const form = new FormData();
     form.append('file', blob, 'cover');
-    const res = await fetch(`${init.apiRoot}/title/${titleId}/cover`, { method: 'POST', headers: { 'X-Api-Key': init.apiKey }, body: form });
+    const res = await fetch(`${init.apiRoot}/title/${titleId}/cover`, { method: 'POST', headers: keyHeader(), body: form });
     if (!res.ok) {
       const b = await res.json().catch(() => ({}));
       throw new Error(b.message ?? b.title ?? `Upload failed: ${res.status}`);
@@ -627,7 +643,7 @@ export function kosyncUrl() {
 
 export function opdsUrl(withKey: boolean) {
   if (!init) return '';
-  return `${window.location.origin}${init.urlBase}/opds${withKey ? `?apikey=${init.apiKey}` : ''}`;
+  return `${window.location.origin}${init.urlBase}/opds${withKey && init.apiKey ? `?apikey=${init.apiKey}` : ''}`;
 }
 
 /** URL of the iCal feed (includes the API key so calendar apps can fetch it). */
@@ -635,3 +651,34 @@ export function calendarFeedUrl() {
   if (!init) return '';
   return `${window.location.origin}${init.urlBase}/feed/v1/calendar/issuarr.ics?apikey=${init.apiKey}`;
 }
+
+export interface UserInfo {
+  id: number;
+  username: string;
+  role: 'admin' | 'reader';
+  isOwner: boolean;
+  created: string;
+  lastSeen?: string;
+  koSync: boolean;
+}
+
+export interface InviteInfo {
+  token: string;
+  role: 'admin' | 'reader';
+  note?: string;
+  created: string;
+  expires: string;
+}
+
+export const users = {
+  list: () => request<UserInfo[]>('/user'),
+  update: (id: number, change: { role?: string; password?: string }) => request<UserInfo>(`/user/${id}`, json('PUT', change)),
+  remove: (id: number) => request(`/user/${id}`, { method: 'DELETE' }),
+  invites: () => request<InviteInfo[]>('/user/invite'),
+  invite: (role: string, note: string, days: number) => request<InviteInfo>('/user/invite', json('POST', { role, note, days })),
+  revoke: (token: string) => request(`/user/invite/${token}`, { method: 'DELETE' }),
+  inviteUrl: (token: string) => `${window.location.origin}${init?.urlBase ?? ''}/invite/${token}`,
+  me: () => request<{ user: UserInfo; koSyncEnabled: boolean }>('/me'),
+  changePassword: (current: string, password: string) => request('/me/password', json('PUT', { current, password })),
+  setKoSyncPassword: (password: string | null) => request('/me/kosync', json('PUT', { password })),
+};
