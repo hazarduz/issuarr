@@ -12,6 +12,7 @@
 - [x] eBooks: authors and books from Open Library / Google Books; book release matching and import
 - [x] Magazine details from Wikidata or ComicVine
 - [x] Built-in reader for CBZ/CBR/CB7, PDF and EPUB with synced progress
+- [x] Disk scan: picks up files added outside Issuarr, forgets deleted ones
 - [x] Forms/Basic login, API key, iCal feed, health checks, scheduled tasks
 
 ## Next
@@ -19,7 +20,6 @@
 - [ ] Tags to route titles to specific indexers / download clients
 - [ ] Issue packs (one release containing many issues)
 - [ ] Manual import of a folder of loose downloads
-- [ ] Disk scan to pick up files added outside Issuarr
 - [ ] Logs page and backups of `/config`
 - [ ] Recycle bin for deleted files
 - [ ] OPDS feed

@@ -19,7 +19,8 @@ public class RefreshTitleService(
     IIssueRepository issues,
     IEnumerable<IMetadataProvider> providers,
     IClock clock,
-    ILogger<RefreshTitleService> log) : IRefreshTitleService
+    ILogger<RefreshTitleService> log,
+    MediaFiles.IDiskScanService? diskScan = null) : IRefreshTitleService
 {
     public static readonly string[] Frequencies = ["Weekly", "Fortnightly", "Monthly", "Bi-monthly", "Quarterly", "Annually"];
 
@@ -53,6 +54,7 @@ public class RefreshTitleService(
             try
             {
                 await Refresh(t.Id, ct);
+                diskScan?.Scan(t.Id);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {

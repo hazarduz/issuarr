@@ -25,6 +25,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - **Comics:** search ComicVine or Metron for series, with covers and full issue lists
 - **Magazines:** look them up on Wikidata (publisher, frequency, cover) or ComicVine, and Issuarr works out the issues from how often they come out
 - **eBooks:** follow authors or add single books from Open Library or Google Books; EPUB, AZW3, MOBI and PDF
+- **Disk scan:** Refresh picks up files you put in a title's folder yourself and forgets ones you deleted; adding a title reuses a matching folder that's already there
 - **Library import:** scan an existing collection; each folder becomes a title, each file an issue
 - **Manual matching:** link imported titles to the right ComicVine/Metron series (during import or later from the title page); your files stay on their issues and the missing ones are filled in
 - **Per-item match, edit and delete:** point a single issue or book at the right metadata entry (duplicates are merged), fix its name/date, or delete it (with or without the file); deleted metadata entries stay hidden until you restore them

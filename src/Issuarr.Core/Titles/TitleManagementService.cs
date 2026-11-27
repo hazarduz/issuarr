@@ -54,13 +54,15 @@ public class TitleManagementService(
     IIssueFileRepository files,
     IHistoryService history,
     FileNameBuilder names,
-    IClock clock) : ITitleManagementService
+    IClock clock,
+    MediaFiles.IDiskScanService? diskScan = null) : ITitleManagementService
 {
     public async Task<Title> Add(Title title, string rootFolder, AddTitleOptions options, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(title.Path))
         {
-            title.Path = Path.Combine(rootFolder, names.TitleFolder(title));
+            // Use a folder that's already there ("Retro Gamer", "Retro Gamer (2004)") before making a new one.
+            title.Path = ExistingFolder(rootFolder, title.Name) ?? Path.Combine(rootFolder, names.TitleFolder(title));
         }
 
         var existing = title.MetadataSource != null && title.ExternalId != null
@@ -102,6 +104,7 @@ public class TitleManagementService(
             throw new TitleAddedWithWarningException(added, $"Added, but couldn't load issues: {e.Message}");
         }
 
+        diskScan?.Scan(added.Id);
         ApplyMonitoring(added.Id, onlyOneBook ? MonitorOption.None : options.Monitor);
         if (onlyOneBook && FindBook(added.Id, options.BookExternalId, options.BookTitle) is { } chosen)
         {
@@ -109,6 +112,19 @@ public class TitleManagementService(
         }
 
         return titles.Get(added.Id)!;
+    }
+
+    /// <summary>A sub-folder of the root folder whose name is the title's name (optionally followed by a year).</summary>
+    public static string? ExistingFolder(string rootFolder, string name)
+    {
+        if (!Directory.Exists(rootFolder))
+        {
+            return null;
+        }
+
+        var wanted = Parser.ReleaseParser.CleanTitle(name);
+        return Directory.EnumerateDirectories(rootFolder)
+            .FirstOrDefault(d => Parser.ReleaseParser.CleanTitle(LibraryImport.LibraryImportService.ParseFolderName(Path.GetFileName(d)).Name) == wanted);
     }
 
     public Issue? FindBook(int titleId, string? externalId, string? bookTitle)

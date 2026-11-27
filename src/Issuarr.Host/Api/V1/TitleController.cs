@@ -273,9 +273,16 @@ public class TitleController(
             return NotFound();
         }
 
+        var before = titles.Get(id)!.Path;
         var model = resource.ToModel();
         model.Id = id;
         var updated = titles.Update(model);
+
+        // A new folder: look for files in it straight away.
+        if (!string.Equals(before, updated.Path, StringComparison.Ordinal))
+        {
+            commands.Enqueue(CommandNames.RefreshTitle, id);
+        }
         return mapper.Title(updated, includeIssues: false);
     }
 
