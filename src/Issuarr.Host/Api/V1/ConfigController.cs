@@ -26,7 +26,7 @@ public record HostConfigResource
 public class ConfigController(IConfigService config, ConfigFile file) : ControllerBase
 {
     private const string Hidden = "********";
-    private static readonly string[] Secrets = ["comicVineApiKey", "metronPassword", "googleBooksApiKey"];
+    private static readonly string[] Secrets = ["comicVineApiKey", "metronPassword", "googleBooksApiKey", "kosyncKey"];
 
     /// <summary>Media management, metadata and download handling settings.</summary>
     [HttpGet]
@@ -39,6 +39,14 @@ public class ConfigController(IConfigService config, ConfigFile file) : Controll
         foreach (var key in Secrets.Where(k => values.GetValueOrDefault(k) == Hidden))
         {
             values.Remove(key);
+        }
+
+        // KOReader authenticates with the MD5 of the password, so that's what's stored; the key
+        // itself can only be set by choosing a password.
+        values.Remove("kosyncKey");
+        if (values.Remove("kosyncPassword", out var syncPassword) && !string.IsNullOrEmpty(syncPassword))
+        {
+            values["kosyncKey"] = Issuarr.Core.Reading.KoSyncService.KeyFor(syncPassword);
         }
 
         foreach (var key in new[] { "comicIssueFormat", "magazineIssueFormat", "titleFolderFormat", "bookFileFormat", "authorFolderFormat" })

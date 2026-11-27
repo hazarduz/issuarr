@@ -14,6 +14,7 @@
 - [x] Built-in reader for CBZ/CBR/CB7, PDF and EPUB with synced progress
 - [x] Disk scan: picks up files added outside Issuarr, forgets deleted ones
 - [x] Custom covers, Home page shelves, OPDS catalog with page streaming
+- [x] KOReader progress sync server
 - [x] Forms/Basic login, API key, iCal feed, health checks, scheduled tasks
 
 ## Next
@@ -25,4 +26,3 @@
 - [ ] Recycle bin for deleted files
 - [ ] Book series (e.g. Stormlight Archive) grouping on author pages
 - [ ] Audiobooks
-- [ ] Sync reading position with KOReader (kosync)

@@ -617,6 +617,10 @@ export const reading = {
   clear: (issueId: number) => request(`/read/${issueId}/progress`, { method: 'DELETE' }),
 };
 
+export function kosyncUrl() {
+  return init ? `${window.location.origin}${init.urlBase}/kosync` : '';
+}
+
 export function opdsUrl(withKey: boolean) {
   if (!init) return '';
   return `${window.location.origin}${init.urlBase}/opds${withKey ? `?apikey=${init.apiKey}` : ''}`;

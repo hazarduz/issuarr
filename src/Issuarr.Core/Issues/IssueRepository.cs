@@ -161,6 +161,7 @@ public interface IIssueFileRepository
     IssueFile? Get(int id);
     IssueFile Insert(IssueFile file);
     void UpdatePath(int id, string relativePath);
+    void SetPartialMd5(int id, string md5);
     void Delete(int id);
 }
 
@@ -195,6 +196,12 @@ public class IssueFileRepository(IDatabase db) : IIssueFileRepository
             """,
             file);
         return file;
+    }
+
+    public void SetPartialMd5(int id, string md5)
+    {
+        using var conn = db.Open();
+        conn.Execute("UPDATE IssueFiles SET PartialMd5 = @md5 WHERE Id = @id", new { id, md5 });
     }
 
     public void UpdatePath(int id, string relativePath)

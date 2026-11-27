@@ -5,7 +5,7 @@ import { FolderPicker } from '../components/FolderPicker';
 import { ProviderList } from '../components/Providers';
 import { useToast } from '../components/Toast';
 import { Grow, Tool, Toolbar } from '../components/Toolbar';
-import { api, formatBytes, isConnected, opdsUrl, serverInfo, type HostConfig, type QualityProfile, type RootFolder } from '../data/api';
+import { api, formatBytes, isConnected, kosyncUrl, opdsUrl, serverInfo, type HostConfig, type QualityProfile, type RootFolder } from '../data/api';
 
 const sections = [
   { id: 'media', label: 'Media Management' },
@@ -473,6 +473,47 @@ function General({ cfg, host, setHost }: { cfg: Config; host: HostConfig | null;
             Kobo's built-in reader doesn't support OPDS. Install <a href="https://koreader.rocks" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>KOReader</a> on the Kobo (it runs alongside the Kobo software), then in KOReader open <b>Search → OPDS catalog → +</b> and add the address above with your username and password. Use your NAS's network address rather than “localhost”.
           </div>
         </Row>
+      </div>
+
+      <h3 style={{ margin: '28px 0 12px' }}>KOReader Sync</h3>
+      <div className="card card-body">
+        <p className="muted" style={{ marginTop: 0 }}>
+          Issuarr can be KOReader's progress sync server: where you are in a book on your Kobo shows up in Continue Reading, and other KOReader devices pick up from the same page. Comic and PDF pages read in Issuarr's own reader are offered back to KOReader too.
+        </p>
+        <Row label="Enable">
+          <Switch on={v.kosyncEnabled === 'true'} onChange={(x) => cfg.set('kosyncEnabled', String(x))} />
+        </Row>
+        {v.kosyncEnabled === 'true' && (
+          <>
+            <Row label="Server address" help="Use your NAS's network address, not localhost.">
+              <div style={{ display: 'flex', gap: 8, maxWidth: 560 }}>
+                <input className="input mono" readOnly value={kosyncUrl()} onFocus={(e) => e.target.select()} />
+                <button className="btn" title="Copy" onClick={() => navigator.clipboard?.writeText(kosyncUrl()).then(() => toast('Sync address copied'))}>
+                  <Copy size={16} />
+                </button>
+              </div>
+            </Row>
+            <Row label="Sync username">
+              <input className="input" autoComplete="off" value={v.kosyncUsername ?? ''} onChange={(e) => cfg.set('kosyncUsername', e.target.value)} />
+            </Row>
+            <Row label="Sync password" help={v.kosyncKey ? 'Set. Type a new one to change it.' : 'Pick a password just for KOReader sync (KOReader sends it as an MD5 hash, so don’t reuse an important one).'}>
+              <input className="input" type="password" autoComplete="new-password" value={v.kosyncPassword ?? ''} placeholder={v.kosyncKey ? '••••••••' : ''} onChange={(e) => cfg.set('kosyncPassword', e.target.value)} />
+            </Row>
+            <Row label="In KOReader">
+              <ol className="help" style={{ marginTop: 8, paddingLeft: 18, lineHeight: 1.7 }}>
+                <li>
+                  Open a book, then <b>Tools (🔧) → Progress sync → Custom sync server</b> and enter the address above.
+                </li>
+                <li>
+                  <b>Progress sync → Login</b> with the username and password above.
+                </li>
+                <li>
+                  Turn on <b>Auto sync</b>. Leave <b>Document matching method</b> on <b>Binary</b> (the default), which works even if you rename files.
+                </li>
+              </ol>
+            </Row>
+          </>
+        )}
       </div>
 
       <h3 style={{ margin: '28px 0 12px' }}>Host</h3>

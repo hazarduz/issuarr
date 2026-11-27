@@ -38,6 +38,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - **Home page:** Continue Reading, Up Next and Recently Added shelves
 - **Covers:** pick a title's cover from metadata, issue covers or the first page of your own files, upload one, or paste an image address
 - **OPDS catalog** at `/opds` for KOReader (Kobo, Kindle, PocketBook…), Panels, Chunky and other reading apps, with page streaming for comics
+- **KOReader sync:** Issuarr is a KOReader progress sync server; reading on your Kobo updates Continue Reading, and devices pick up where each other left off
 - **Built-in reader:** read comics (CBZ/CBR/CB7), magazines (PDF) and eBooks (EPUB) in the browser, with reading progress synced across devices; MOBI/AZW3 can be downloaded
 - **Connections:** rescan Komga or Kavita on import; Discord and webhook notifications
 - **Calendar:** month view and an iCal feed for your calendar app
@@ -48,6 +49,12 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 Settings → General shows your catalog address, e.g. `http://192.168.1.10:8788/opds`. Add it to any OPDS app and sign in with your Issuarr username and password.
 
 **Kobo:** the built-in Kobo software doesn't support OPDS. Install [KOReader](https://koreader.rocks) (it runs alongside the Kobo software), then in KOReader go to **Search → OPDS catalog → +** and add the address. KOReader can download books and stream comic pages straight from Issuarr.
+
+### KOReader progress sync
+
+Settings → General → **KOReader Sync**: turn it on and choose a username and password. Then in KOReader (with a book open): **Tools → Progress sync → Custom sync server** → `http://<your-NAS>:8788/kosync`, **Login**, and turn on **Auto sync**. Leave *Document matching method* on *Binary*.
+
+Your position on the Kobo shows up in Issuarr's Continue Reading, and other KOReader devices jump to the same place. Comic and PDF pages read in Issuarr's web reader are offered back to KOReader too (EPUB positions only sync from KOReader to Issuarr, since KOReader uses its own internal positions for reflowable books).
 
 ### First-time setup
 
@@ -170,6 +177,7 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | PUT / DELETE | `/api/v1/read/{issueId}/progress` | Save `{ position, percent }` / clear reading progress |
 | GET | `/api/v1/reading/home` | Home shelves: continue reading, up next, recently added |
 | GET / POST / PUT / DELETE | `/api/v1/title/{id}/covers` · `/cover` | Cover candidates / upload (multipart) / from URL `{ url }` / reset |
+| GET / PUT | `/kosync/…` | KOReader sync server (`users/auth`, `syncs/progress`) |
 | GET | `/opds` | OPDS 1.2 catalog (HTTP Basic with your login, or `?apikey=`) |
 | GET | `/feed/v1/calendar/issuarr.ics` | iCal feed |
 | GET | `/api/v1/health` · `/api/v1/system/status` · `/api/v1/system/task` | Health checks, system info, scheduled tasks |

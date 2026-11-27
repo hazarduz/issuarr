@@ -28,6 +28,11 @@ public interface IConfigService
     string GoogleBooksApiKey { get; }
     string BookFileFormat { get; }
     string AuthorFolderFormat { get; }
+    bool KoSyncEnabled { get; }
+    string KoSyncUsername { get; }
+
+    /// <summary>MD5 of the sync password, which is what KOReader sends as its key.</summary>
+    string KoSyncKey { get; }
     int RssSyncInterval { get; }
     int MinimumSeeders { get; }
     bool AutoRedownloadFailed { get; }
@@ -54,6 +59,9 @@ public class ConfigService(IDatabase db) : IConfigService
         ["googleBooksApiKey"] = "",
         ["bookFileFormat"] = "{Title} - {Issue} ({Release Year})",
         ["authorFolderFormat"] = "{Title}",
+        ["kosyncEnabled"] = "false",
+        ["kosyncUsername"] = "",
+        ["kosyncKey"] = "",
         ["rssSyncInterval"] = "15",
         ["minimumSeeders"] = "1",
         ["autoRedownloadFailed"] = "true",
@@ -117,6 +125,9 @@ public class ConfigService(IDatabase db) : IConfigService
     public string GoogleBooksApiKey => Get("googleBooksApiKey");
     public string BookFileFormat => Get("bookFileFormat");
     public string AuthorFolderFormat => Get("authorFolderFormat");
+    public bool KoSyncEnabled => GetBool("kosyncEnabled");
+    public string KoSyncUsername => Get("kosyncUsername");
+    public string KoSyncKey => Get("kosyncKey");
     public int RssSyncInterval => Math.Max(10, GetInt("rssSyncInterval"));
     public int MinimumSeeders => GetInt("minimumSeeders");
     public bool AutoRedownloadFailed => GetBool("autoRedownloadFailed");

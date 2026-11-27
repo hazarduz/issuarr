@@ -42,4 +42,7 @@ public class IssueFile
     public long Size { get; set; }
     public string Format { get; set; } = "";
     public string DateAdded { get; set; } = "";
+
+    /// <summary>KOReader's document fingerprint (see KoSync.PartialMd5), filled in lazily.</summary>
+    public string? PartialMd5 { get; set; }
 }

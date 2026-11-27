@@ -425,6 +425,12 @@ function EpubReader({ info }: { info: ReadInfo }) {
 
     // Locations give an accurate percentage; generating them takes a moment on big books.
     b.ready.then(() => b.locations.generate(1200)).then(() => {
+      // Progress synced from KOReader arrives as a percentage ("pct:0.42"): jump there.
+      const pos = info.progress?.position;
+      if (pos?.startsWith('pct:')) {
+        const cfi = b.locations.cfiFromPercentage(Number(pos.slice(4)));
+        if (cfi) r.display(cfi);
+      }
       const loc = r.currentLocation() as unknown as { start?: { cfi: string } };
       if (loc?.start) setPercent(Math.round(b.locations.percentageFromCfi(loc.start.cfi) * 100));
     });

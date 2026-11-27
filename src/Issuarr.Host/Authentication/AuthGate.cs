@@ -19,7 +19,8 @@ namespace Issuarr.Host.Authentication;
 /// </summary>
 public class AuthGate(RequestDelegate next, ConfigFile config)
 {
-    private static readonly string[] PublicPrefixes = ["/login", "/logout", "/ping", "/assets/", "/logo.svg", "/favicon"];
+    // /kosync does its own authentication with KOReader's x-auth-user / x-auth-key headers.
+    private static readonly string[] PublicPrefixes = ["/login", "/logout", "/ping", "/assets/", "/logo.svg", "/favicon", "/kosync/"];
 
     public async Task InvokeAsync(HttpContext context)
     {
