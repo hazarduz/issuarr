@@ -9,7 +9,7 @@ import {
   Search as SearchIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Cover } from '../components/Cover';
 import { MonitorToggle, ProgressBar } from '../components/Status';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
@@ -58,7 +58,8 @@ export default function Library() {
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, []);
-  const [kind, setKind] = useState<'all' | Kind>('all');
+  const [params] = useSearchParams();
+  const [kind, setKind] = useState<'all' | Kind>(() => (['comic', 'magazine', 'book'].includes(params.get('kind') ?? '') ? (params.get('kind') as Kind) : 'all'));
   const [sort, setSort] = useState<Sort>('name');
   const [refreshing, setRefreshing] = useState(false);
   const [posterSize, setPosterSize] = useState(168);

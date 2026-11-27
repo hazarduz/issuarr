@@ -615,7 +615,8 @@ export const covers = {
 };
 
 export const reading = {
-  home: () => request<{ continueReading: ShelfItem[]; upNext: ShelfItem[]; recentlyAdded: ShelfItem[] }>('/reading/home'),
+  home: () =>
+    request<{ continueReading: ShelfItem[]; upNext: ShelfItem[]; recentlyAdded: ShelfItem[]; latestComics: ShelfItem[]; latestMagazines: ShelfItem[]; latestBooks: ShelfItem[] }>('/reading/home'),
   markRead: (issueId: number) => request(`/read/${issueId}/progress`, json('PUT', { position: 'end', percent: 100 })),
   clear: (issueId: number) => request(`/read/${issueId}/progress`, { method: 'DELETE' }),
 };

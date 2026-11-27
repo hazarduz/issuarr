@@ -7,7 +7,9 @@ public record ShelfItem(
     int IssueId, int TitleId, string TitleName, string TitleSlug, TitleKind Kind, string Number, string? IssueTitle,
     string Format, double? Percent, string? When);
 
-public record ReadingHome(List<ShelfItem> ContinueReading, List<ShelfItem> UpNext, List<ShelfItem> RecentlyAdded);
+public record ReadingHome(
+    List<ShelfItem> ContinueReading, List<ShelfItem> UpNext, List<ShelfItem> RecentlyAdded,
+    List<ShelfItem> LatestComics, List<ShelfItem> LatestMagazines, List<ShelfItem> LatestBooks);
 
 public interface IReadingHomeService
 {
@@ -65,13 +67,19 @@ public class ReadingHomeService(IReadProgressRepository progress, IIssueReposito
             }
         }
 
+        // Newest files first; files imported together (e.g. a whole back catalogue) newest issue first.
         var issueByFile = allIssues.Where(i => i.IssueFileId != null).GroupBy(i => i.IssueFileId!.Value).ToDictionary(g => g.Key, g => g.First());
-        var recent = fileMap.Values.OrderByDescending(f => f.DateAdded)
-            .Select(f => issueByFile.TryGetValue(f.Id, out var i) ? Item(i.Id, percentByIssue.TryGetValue(i.Id, out var p) ? p : null, f.DateAdded) : null)
+        var added = fileMap.Values
+            .Where(f => issueByFile.ContainsKey(f.Id))
+            .Select(f => (File: f, Issue: issueByFile[f.Id]))
+            .OrderByDescending(x => x.File.DateAdded)
+            .ThenByDescending(x => x.Issue.ReleaseDate)
+            .ThenByDescending(x => x.Issue.SortKey)
+            .Select(x => Item(x.Issue.Id, percentByIssue.TryGetValue(x.Issue.Id, out var p) ? p : null, x.File.DateAdded))
             .OfType<ShelfItem>()
-            .Take(limit)
             .ToList();
 
-        return new ReadingHome(reading, upNext, recent);
+        List<ShelfItem> Latest(TitleKind kind) => added.Where(a => a.Kind == kind).Take(limit).ToList();
+        return new ReadingHome(reading, upNext, added.Take(limit).ToList(), Latest(TitleKind.Comic), Latest(TitleKind.Magazine), Latest(TitleKind.Book));
     }
 }

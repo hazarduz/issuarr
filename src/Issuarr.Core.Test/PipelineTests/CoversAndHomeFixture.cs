@@ -126,6 +126,9 @@ public class CoversAndHomeFixture
         Assert.That(h1.ContinueReading, Is.Empty);
         Assert.That(h1.UpNext.Single().Number, Is.EqualTo("#2"), "after finishing #1, #2 is up next");
         Assert.That(h1.RecentlyAdded.First().Number, Is.EqualTo("#4"));
+        Assert.That(h1.LatestComics.Select(i => i.Number), Is.EqualTo(new[] { "#4", "#3", "#2", "#1" }));
+        Assert.That(h1.LatestMagazines, Is.Empty);
+        Assert.That(h1.LatestBooks, Is.Empty);
 
         _progress.Save(new ReadProgress { IssueId = ids[1], Position = "5", Percent = 40 });
         var h2 = home.Get();

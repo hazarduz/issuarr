@@ -243,9 +243,9 @@ export default function TitleDetail() {
       {issues.map((i) => (
         <div className={`issue-row ${i.file ? '' : 'no-file'}`} key={i.id}>
           <MonitorToggle on={i.monitored} onClick={() => setIssuesMonitored([i], !i.monitored)} />
-          <button className="issue-row-cover" title={canRead(i) ? 'Read' : undefined} onClick={() => canRead(i) && navigate(`/read/${i.serverId}`)} disabled={!canRead(i)}>
+          <div className={`issue-row-cover ${canRead(i) ? '' : 'disabled'}`} role="button" title={canRead(i) ? 'Read' : undefined} onClick={() => canRead(i) && navigate(`/read/${i.serverId}`)}>
             <IssueCover title={title} issue={i} size="sm" />
-          </button>
+          </div>
           <div className="issue-row-main">
             <div className="issue-row-name">
               <span style={{ fontWeight: 600 }}>{i.number}</span>
@@ -286,7 +286,14 @@ export default function TitleDetail() {
     <div className="issue-grid">
       {issues.map((i) => (
         <div className={`issue-card ${i.file ? '' : 'no-file'}`} key={i.id}>
-          <button className="issue-card-cover" title={canRead(i) ? (i.readPercent ? 'Continue reading' : 'Read') : undefined} onClick={() => canRead(i) && navigate(`/read/${i.serverId}`)} disabled={!canRead(i)}>
+          <div
+            className={`issue-card-cover ${canRead(i) ? '' : 'disabled'}`}
+            role="button"
+            tabIndex={canRead(i) ? 0 : -1}
+            title={canRead(i) ? (i.readPercent ? 'Continue reading' : 'Read') : undefined}
+            onClick={() => canRead(i) && navigate(`/read/${i.serverId}`)}
+            onKeyDown={(e) => e.key === 'Enter' && canRead(i) && navigate(`/read/${i.serverId}`)}
+          >
             <IssueCover title={title} issue={i} />
             {canRead(i) && (
               <span className="shelf-play">
@@ -302,7 +309,7 @@ export default function TitleDetail() {
                 <span style={{ width: `${i.readPercent}%` }} />
               </span>
             )}
-          </button>
+          </div>
           <div className="issue-card-meta">
             <div className="issue-card-name" title={i.title ? `${i.number} — ${i.title}` : i.number}>
               {i.number}
