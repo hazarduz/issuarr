@@ -38,7 +38,8 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             IssueStatusCalculator.Calculate(issue, title.Monitored, clock.Today, pending.PendingIssueIds().Contains(issue.Id)),
             file,
             issue.CoverUrl,
-            readPercent?.GetValueOrDefault(issue.Id) is var p and > 0 ? p : null);
+            readPercent?.GetValueOrDefault(issue.Id) is var p and > 0 ? p : null,
+            issue.ReleaseDateLocked);
     }
 
     private TitleResource Title(Title title, List<Issue> titleIssues, IReadOnlyDictionary<int, IssueFile> fileMap, bool includeIssues)

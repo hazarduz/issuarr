@@ -2097,3 +2097,49 @@ div.folder-row:hover {
     grid-auto-columns: 120px;
   }
 }
+
+/* Inline release date editing */
+.date-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.date-button {
+  border: 1px dashed transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 2px 6px;
+  margin: -3px -7px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.date-button:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-2);
+}
+.date-pin {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+.date-pin:hover {
+  background: var(--accent-soft);
+}
+.input.date-edit {
+  width: 150px;
+  max-width: none;
+  color-scheme: dark;
+}
+[data-theme='light'] .input.date-edit {
+  color-scheme: light;
+}

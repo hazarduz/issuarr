@@ -8,6 +8,8 @@ public record IssueEditRequest(string Number, string? Title, string ReleaseDate)
 
 public record IssueMatchRequest(string ExternalId);
 
+public record ReleaseDateRequest(string? ReleaseDate);
+
 [ApiController]
 [Route("api/v1/issue")]
 public class IssueController(IIssueRepository issues, IIssueFileRepository files, ITitleService titles, IIssueManagementService manage, ResourceMapper mapper)
@@ -15,6 +17,10 @@ public class IssueController(IIssueRepository issues, IIssueFileRepository files
 {
     [HttpPut("{id:int}")]
     public ActionResult<IssueResource> Edit(int id, [FromBody] IssueEditRequest req) => Run(() => manage.Edit(id, req.Number, req.Title, req.ReleaseDate));
+
+    /// <summary>Set the release date by hand (null unlocks it so metadata refreshes update it again).</summary>
+    [HttpPut("{id:int}/releasedate")]
+    public ActionResult<IssueResource> SetReleaseDate(int id, [FromBody] ReleaseDateRequest req) => Run(() => manage.SetReleaseDate(id, req.ReleaseDate));
 
     [HttpPost("{id:int}/match")]
     public async Task<ActionResult<IssueResource>> Match(int id, [FromBody] IssueMatchRequest req, CancellationToken ct)

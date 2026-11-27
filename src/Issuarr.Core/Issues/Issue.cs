@@ -32,6 +32,9 @@ public class Issue
 
     /// <summary>Deleted by the user; kept so a metadata refresh doesn't add it back.</summary>
     public bool Ignored { get; set; }
+
+    /// <summary>The user set the release date by hand; metadata refreshes leave it alone.</summary>
+    public bool ReleaseDateLocked { get; set; }
 }
 
 public class IssueFile

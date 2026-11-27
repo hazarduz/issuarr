@@ -91,7 +91,11 @@ public class RefreshTitleService(
                 existing.Number = number;
                 existing.SortKey = sortKey;
                 existing.IssueTitle = isBook ? existing.IssueTitle : info.Name ?? existing.IssueTitle;
-                existing.ReleaseDate = date;
+                if (!existing.ReleaseDateLocked)
+                {
+                    existing.ReleaseDate = date;
+                }
+
                 existing.ExternalId = info.ExternalId;
                 existing.CoverUrl = info.CoverUrl ?? existing.CoverUrl;
                 issues.Update(existing);

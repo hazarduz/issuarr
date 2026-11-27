@@ -15,7 +15,8 @@ public record IssueResource(
     IssueStatus Status,
     IssueFileResource? File,
     string? CoverUrl = null,
-    double? ReadPercent = null);
+    double? ReadPercent = null,
+    bool ReleaseDateLocked = false);
 
 public record TitleStatistics(int IssueCount, int IssueFileCount, int MissingCount, long SizeOnDisk, string? NextIssue, int HiddenCount = 0);
 

@@ -23,6 +23,7 @@ import { Cover } from '../components/Cover';
 import { CoverDialog } from '../components/CoverDialog';
 import { ItemDeleteDialog, ItemMatchDialog } from '../components/ItemDialogs';
 import { MatchDialog } from '../components/MatchDialog';
+import { ReleaseDateCell } from '../components/ReleaseDateCell';
 import { MonitorToggle, ProgressBar, StatusPill } from '../components/Status';
 import { DeleteTitleDialog, EditTitleDialog, FilesDialog, HistoryDialog, InteractiveSearchDialog, RenameDialog } from '../components/TitleDialogs';
 import { useToast } from '../components/Toast';
@@ -278,7 +279,9 @@ export default function TitleDetail() {
                             <span style={{ fontWeight: 600 }}>{i.number}</span>
                             {i.title && <span className="muted"> — {i.title}</span>}
                           </td>
-                          <td className="num muted">{parseDate(i.releaseDate).toLocaleDateString(undefined, { dateStyle: 'medium' })}</td>
+                          <td className="num muted">
+                            <ReleaseDateCell title={title} issue={i} onChanged={(d) => title.kind !== 'book' && setOpen((o) => ({ ...o, [d.slice(0, 4)]: true }))} />
+                          </td>
                           <td className="muted mono" style={{ fontSize: 12 }}>
                             {i.file ? (
                               <>

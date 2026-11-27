@@ -29,6 +29,7 @@ interface ApiIssue {
   file?: { id: number; name: string; size: number; format: string };
   coverUrl?: string;
   readPercent?: number;
+  releaseDateLocked?: boolean;
 }
 
 export interface ApiTitle {
@@ -367,6 +368,7 @@ export function toTitle(t: ApiTitle): Title {
     monitored: i.monitored,
     coverUrl: i.coverUrl,
     readPercent: i.readPercent,
+    releaseDateLocked: i.releaseDateLocked,
     file: i.file ? { id: i.file.id, name: i.file.name, size: formatBytes(i.file.size), format: i.file.format } : undefined,
   }));
   return {
@@ -487,6 +489,7 @@ export const api = {
   matchIssue: (issueId: number, externalId: string) => request('/issue/' + issueId + '/match', json('POST', { externalId })),
   editIssue: (issueId: number, number: string, title: string | undefined, releaseDate: string) =>
     request('/issue/' + issueId, json('PUT', { number, title, releaseDate })),
+  setReleaseDate: (issueId: number, releaseDate: string | null) => request(`/issue/${issueId}/releasedate`, json('PUT', { releaseDate })),
   deleteIssue: (issueId: number, deleteFile: boolean) => request(`/issue/${issueId}?deleteFile=${deleteFile}`, { method: 'DELETE' }),
   restoreHidden: (titleId: string | number) => request(`/title/${titleId}/restorehidden`, { method: 'POST' }),
   titleFiles: (id: string | number) => request<IssueFileInfo[]>(`/title/${id}/files`),

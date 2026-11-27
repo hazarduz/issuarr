@@ -155,6 +155,47 @@ public class IssueManagementFixture
     }
 
     [Test]
+    public async Task manual_release_date_survives_refresh_until_unlocked()
+    {
+        var martian = _issues.GetByTitle(_author.Id).Single(i => i.ExternalId == "W1");
+
+        var set = _manage.SetReleaseDate(martian.Id, "2011-09-27");
+        Assert.That(set.ReleaseDateLocked, Is.True);
+        Assert.That(set.SortKey, Is.EqualTo(20110927));
+
+        await _refresh.Refresh(_author.Id, CancellationToken.None);
+        Assert.That(_issues.Get(martian.Id)!.ReleaseDate, Is.EqualTo("2011-09-27"), "metadata said 2011-01-01 but the manual date wins");
+
+        _manage.SetReleaseDate(martian.Id, null);
+        await _refresh.Refresh(_author.Id, CancellationToken.None);
+        Assert.That(_issues.Get(martian.Id)!.ReleaseDate, Is.EqualTo("2011-01-01"), "unlocked: metadata date is back");
+    }
+
+    [Test]
+    public void numbered_magazine_issues_keep_number_order_when_dated()
+    {
+        var mag = _titles.Add(new Title { Name = "Retro Gamer", Kind = TitleKind.Magazine, Path = _dir }, _dir);
+        _issues.InsertMany(
+        [
+            new Issue { TitleId = mag.Id, Number = "#257", SortKey = 257, ReleaseDate = "2026-11-27" },
+            new Issue { TitleId = mag.Id, Number = "#258", SortKey = 258, ReleaseDate = "2026-11-27" },
+        ]);
+        var i258 = _issues.GetByTitle(mag.Id).Single(i => i.Number == "#258");
+
+        _manage.SetReleaseDate(i258.Id, "2024-02-01");
+
+        Assert.That(_issues.GetByTitle(mag.Id).Select(i => i.Number), Is.EqualTo(new[] { "#258", "#257" }), "still ordered by issue number");
+        Assert.That(_issues.Get(i258.Id)!.ReleaseDate, Is.EqualTo("2024-02-01"));
+    }
+
+    [Test]
+    public void bad_dates_are_rejected()
+    {
+        var martian = _issues.GetByTitle(_author.Id).Single(i => i.ExternalId == "W1");
+        Assert.Throws<ArgumentException>(() => _manage.SetReleaseDate(martian.Id, "next tuesday"));
+    }
+
+    [Test]
     public void edit_should_rename_and_reject_duplicates()
     {
         var dup = ImportedDuplicate();

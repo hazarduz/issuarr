@@ -11,6 +11,7 @@ export interface Issue {
   serverId?: number;
   coverUrl?: string;
   readPercent?: number;
+  releaseDateLocked?: boolean;
   file?: { id?: number; name: string; size: string; format: string };
 }
 

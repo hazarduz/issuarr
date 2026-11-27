@@ -23,6 +23,9 @@ public interface IIssueManagementService
 
     Issue Edit(int issueId, string number, string? issueTitle, string releaseDate);
 
+    /// <summary>Sets just the release date (locking it against metadata refreshes), or unlocks it.</summary>
+    Issue SetReleaseDate(int issueId, string? releaseDate);
+
     /// <summary>Removes an issue/book. Metadata-backed ones are hidden so a refresh doesn't add them back.</summary>
     void Delete(int issueId, bool deleteFile);
 
@@ -75,6 +78,7 @@ public class IssueManagementService(
 
         issue.ExternalId = externalId;
         issue.Ignored = false;
+        issue.ReleaseDateLocked = false;
         Apply(title, issue, number, name, date, info.CoverUrl);
         issues.Update(issue);
         return issue;
@@ -105,9 +109,32 @@ public class IssueManagementService(
             throw new ArgumentException($"{title.Name} already has \"{number}\". Use Match to merge them instead.");
         }
 
-        Apply(title, issue, number, title.Kind == TitleKind.Book ? null : (string.IsNullOrWhiteSpace(issueTitle) ? null : issueTitle.Trim()), date.ToString("yyyy-MM-dd"), issue.CoverUrl);
+        var newDate = date.ToString("yyyy-MM-dd");
+        if (newDate != issue.ReleaseDate)
+        {
+            issue.ReleaseDateLocked = true;
+        }
+
+        Apply(title, issue, number, title.Kind == TitleKind.Book ? null : (string.IsNullOrWhiteSpace(issueTitle) ? null : issueTitle.Trim()), newDate, issue.CoverUrl);
         issues.Update(issue);
         return issue;
+    }
+
+    public Issue SetReleaseDate(int issueId, string? releaseDate)
+    {
+        var issue = issues.Get(issueId) ?? throw new KeyNotFoundException("Not found");
+        if (releaseDate == null)
+        {
+            // Unlock: the next refresh puts the metadata source's date back.
+            issue.ReleaseDateLocked = false;
+            issues.Update(issue);
+            return issue;
+        }
+
+        var edited = Edit(issueId, issue.Number, issue.IssueTitle, releaseDate);
+        edited.ReleaseDateLocked = true;
+        issues.Update(edited);
+        return edited;
     }
 
     public void Delete(int issueId, bool deleteFile)
@@ -175,7 +202,9 @@ public class IssueManagementService(
         issue.ReleaseDate = date;
         issue.CoverUrl = cover ?? issue.CoverUrl;
         var d = DateOnly.Parse(date, CultureInfo.InvariantCulture);
-        issue.SortKey = title.Kind == TitleKind.Comic && IssueNumbering.GetNumber(number) is { } n
+        // Numbered issues (comics, and magazines like "#258") stay in number order; books and
+        // dated magazine issues are ordered by date.
+        issue.SortKey = title.Kind != TitleKind.Book && IssueNumbering.GetNumber(number) is { } n
             ? (double)n
             : d.Year * 10000 + d.Month * 100 + d.Day;
     }

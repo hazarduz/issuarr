@@ -104,8 +104,8 @@ public class IssueRepository(IDatabase db) : IIssueRepository
         using var tx = conn.BeginTransaction();
         conn.Execute(
             """
-            INSERT INTO Issues (TitleId, Number, SortKey, IssueTitle, ReleaseDate, Monitored, IssueFileId, ExternalId, CoverUrl, Ignored)
-            VALUES (@TitleId, @Number, @SortKey, @IssueTitle, @ReleaseDate, @Monitored, @IssueFileId, @ExternalId, @CoverUrl, @Ignored)
+            INSERT INTO Issues (TitleId, Number, SortKey, IssueTitle, ReleaseDate, Monitored, IssueFileId, ExternalId, CoverUrl, Ignored, ReleaseDateLocked)
+            VALUES (@TitleId, @Number, @SortKey, @IssueTitle, @ReleaseDate, @Monitored, @IssueFileId, @ExternalId, @CoverUrl, @Ignored, @ReleaseDateLocked)
             """,
             issues, tx);
         tx.Commit();
@@ -117,7 +117,7 @@ public class IssueRepository(IDatabase db) : IIssueRepository
         conn.Execute(
             """
             UPDATE Issues SET Number = @Number, SortKey = @SortKey, IssueTitle = @IssueTitle, ReleaseDate = @ReleaseDate,
-                Monitored = @Monitored, IssueFileId = @IssueFileId, ExternalId = @ExternalId, CoverUrl = @CoverUrl, Ignored = @Ignored
+                Monitored = @Monitored, IssueFileId = @IssueFileId, ExternalId = @ExternalId, CoverUrl = @CoverUrl, Ignored = @Ignored, ReleaseDateLocked = @ReleaseDateLocked
             WHERE Id = @Id
             """,
             issue);
