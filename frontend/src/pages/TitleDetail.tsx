@@ -18,6 +18,7 @@ import {
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Cover } from '../components/Cover';
+import { ItemDeleteDialog, ItemMatchDialog } from '../components/ItemDialogs';
 import { MatchDialog } from '../components/MatchDialog';
 import { MonitorToggle, ProgressBar, StatusPill } from '../components/Status';
 import { DeleteTitleDialog, EditTitleDialog, FilesDialog, HistoryDialog, InteractiveSearchDialog, RenameDialog } from '../components/TitleDialogs';
@@ -27,7 +28,7 @@ import { api, isConnected } from '../data/api';
 import { itemWord, kindLabel, parseDate, sourceName, stats, titles, type Issue } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
-type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | { search: Issue | null };
+type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | { search: Issue | null } | { matchItem: Issue } | { deleteItem: Issue };
 
 export default function TitleDetail() {
   useLibraryVersion();
@@ -257,7 +258,7 @@ export default function TitleDetail() {
                         <th>File</th>
                         <th>Size</th>
                         <th>Status</th>
-                        <th style={{ width: 90 }} />
+                        <th style={{ width: 150 }} />
                       </tr>
                     </thead>
                     <tbody>
@@ -285,7 +286,13 @@ export default function TitleDetail() {
                             <StatusPill status={i.status} />
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: 2 }}>
+                            <div style={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                              <button className="icon-btn" style={{ width: 30, height: 30 }} title={`Match or edit this ${itemWord(title.kind)}`} onClick={needsLive({ matchItem: i })}>
+                                <Link2 size={15} />
+                              </button>
+                              <button className="icon-btn danger-hover" style={{ width: 30, height: 30 }} title={`Delete this ${itemWord(title.kind)}`} onClick={needsLive({ deleteItem: i })}>
+                                <Trash2 size={15} />
+                              </button>
                               <button
                                 className="icon-btn"
                                 style={{ width: 30, height: 30 }}
@@ -308,6 +315,22 @@ export default function TitleDetail() {
             </div>
           );
         })}
+        {(title.serverStats?.hidden ?? 0) > 0 && (
+          <div className="help" style={{ textAlign: 'right', marginBottom: 4 }}>
+            {title.serverStats!.hidden} hidden {itemWord(title.kind, title.serverStats!.hidden !== 1)} ·{' '}
+            <a
+              style={{ color: 'var(--accent)', cursor: 'pointer' }}
+              onClick={async () => {
+                await api.restoreHidden(title.id);
+                await api.loadTitle(title.id);
+                notifyLibrary();
+                toast(`Restored hidden ${itemWord(title.kind, true)}`);
+              }}
+            >
+              Restore
+            </a>
+          </div>
+        )}
         {title.metadataSource && (
           <div className="help" style={{ textAlign: 'right' }}>
             {title.kind === 'book' ? 'Book list' : title.kind === 'magazine' ? 'Details' : 'Issue list'} from {sourceName[title.metadataSource] ?? title.metadataSource}
@@ -349,7 +372,9 @@ export default function TitleDetail() {
           }}
         />
       )}
-      {dialog && typeof dialog === 'object' && (
+      {dialog && typeof dialog === 'object' && 'matchItem' in dialog && <ItemMatchDialog title={title} item={dialog.matchItem} onClose={() => setDialog(null)} />}
+      {dialog && typeof dialog === 'object' && 'deleteItem' in dialog && <ItemDeleteDialog title={title} item={dialog.deleteItem} onClose={() => setDialog(null)} />}
+      {dialog && typeof dialog === 'object' && 'search' in dialog && (
         <InteractiveSearchDialog
           title={title}
           issueId={dialog.search?.serverId}

@@ -70,7 +70,7 @@ public class RefreshTitleService(
         title.Year = series.Year ?? title.Year;
 
         var remote = await provider.GetIssues(title.ExternalId!, ct);
-        var local = issues.GetByTitle(title.Id);
+        var local = issues.GetByTitleIncludingIgnored(title.Id);
         var byExternal = local.Where(i => i.ExternalId != null).ToDictionary(i => i.ExternalId!);
         var newIssues = new List<Issue>();
 
@@ -145,7 +145,7 @@ public class RefreshTitleService(
     private int RefreshSchedule(Title title, DateOnly? firstIssueDate)
     {
         var step = Step(title.Frequency)!;
-        var local = issues.GetByTitle(title.Id);
+        var local = issues.GetByTitleIncludingIgnored(title.Id);
         var known = local.Select(i => i.Number).ToHashSet();
         var last = local.Select(i => DateOnly.Parse(i.ReleaseDate, CultureInfo.InvariantCulture)).DefaultIfEmpty().Max();
 

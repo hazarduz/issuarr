@@ -16,7 +16,7 @@ public record IssueResource(
     IssueFileResource? File,
     string? CoverUrl = null);
 
-public record TitleStatistics(int IssueCount, int IssueFileCount, int MissingCount, long SizeOnDisk, string? NextIssue);
+public record TitleStatistics(int IssueCount, int IssueFileCount, int MissingCount, long SizeOnDisk, string? NextIssue, int HiddenCount = 0);
 
 public record TitleResource
 {

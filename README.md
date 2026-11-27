@@ -27,6 +27,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - **eBooks:** follow authors or add single books from Open Library or Google Books; EPUB, AZW3, MOBI and PDF
 - **Library import:** scan an existing collection; each folder becomes a title, each file an issue
 - **Manual matching:** link imported titles to the right ComicVine/Metron series (during import or later from the title page); your files stay on their issues and the missing ones are filled in
+- **Per-item match, edit and delete:** point a single issue or book at the right metadata entry (duplicates are merged), fix its name/date, or delete it (with or without the file); deleted metadata entries stay hidden until you restore them
 - **Indexers:** Newznab, Torznab, or Prowlarr (search all its indexers at once)
 - **Download clients:** qBittorrent, Deluge, Transmission, SABnzbd, NZBGet, with remote path mappings for Docker setups
 - **Automatic downloads:** RSS sync every 15 minutes, plus search on add, per title, per issue or for everything missing
@@ -144,6 +145,9 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET / POST / PUT / DELETE | `/api/v1/indexer` · `/downloadclient` · `/notification` | Providers (+ `/schema`, `/test`) |
 | GET | `/api/v1/title/lookup?term=&kind=&source=` | Search series (`comic`), magazines (`magazine`) or authors (`book`) |
 | GET | `/api/v1/title/lookup/book?term=` | Search individual books |
+| GET | `/api/v1/title/{id}/candidates` | Metadata entries an issue/book can be matched to |
+| PUT / DELETE | `/api/v1/issue/{id}` | Edit an issue/book `{ number, title, releaseDate }` / delete (`?deleteFile=`) |
+| POST | `/api/v1/issue/{id}/match` · `/api/v1/title/{id}/restorehidden` | Match an issue/book `{ externalId }` / restore hidden ones |
 | POST / DELETE | `/api/v1/title/{id}/match` | Match a title to a series `{ source, externalId, useMetadataName }` / unmatch |
 | GET / POST | `/api/v1/release?titleId=&issueId=` | Interactive search / grab a release |
 | POST / GET | `/api/v1/command` | Run jobs: `RefreshTitle`, `RefreshAll`, `TitleSearch`, `IssueSearch`, `MissingSearch`, `RssSync`, `ProcessDownloads`, `RenameTitle` |

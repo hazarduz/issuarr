@@ -6,6 +6,12 @@ namespace Issuarr.Core.Issues;
 public interface IIssueRepository
 {
     List<Issue> GetByTitle(int titleId);
+
+    /// <summary>Including hidden issues (for metadata refresh, so they aren't re-added).</summary>
+    List<Issue> GetByTitleIncludingIgnored(int titleId);
+
+    int CountIgnored(int titleId);
+    void RestoreIgnored(int titleId);
     List<Issue> All();
     Issue? Get(int id);
     List<Issue> Get(IEnumerable<int> ids);
@@ -26,13 +32,31 @@ public class IssueRepository(IDatabase db) : IIssueRepository
     public List<Issue> GetByTitle(int titleId)
     {
         using var conn = db.Open();
+        return conn.Query<Issue>("SELECT * FROM Issues WHERE TitleId = @titleId AND Ignored = 0 ORDER BY SortKey DESC", new { titleId }).AsList();
+    }
+
+    public List<Issue> GetByTitleIncludingIgnored(int titleId)
+    {
+        using var conn = db.Open();
         return conn.Query<Issue>("SELECT * FROM Issues WHERE TitleId = @titleId ORDER BY SortKey DESC", new { titleId }).AsList();
+    }
+
+    public int CountIgnored(int titleId)
+    {
+        using var conn = db.Open();
+        return conn.ExecuteScalar<int>("SELECT COUNT(*) FROM Issues WHERE TitleId = @titleId AND Ignored = 1", new { titleId });
+    }
+
+    public void RestoreIgnored(int titleId)
+    {
+        using var conn = db.Open();
+        conn.Execute("UPDATE Issues SET Ignored = 0 WHERE TitleId = @titleId", new { titleId });
     }
 
     public List<Issue> All()
     {
         using var conn = db.Open();
-        return conn.Query<Issue>("SELECT * FROM Issues").AsList();
+        return conn.Query<Issue>("SELECT * FROM Issues WHERE Ignored = 0").AsList();
     }
 
     public Issue? Get(int id)
@@ -51,7 +75,7 @@ public class IssueRepository(IDatabase db) : IIssueRepository
     {
         using var conn = db.Open();
         return conn.Query<Issue>(
-            "SELECT * FROM Issues WHERE ReleaseDate >= @start AND ReleaseDate <= @end ORDER BY ReleaseDate",
+            "SELECT * FROM Issues WHERE Ignored = 0 AND ReleaseDate >= @start AND ReleaseDate <= @end ORDER BY ReleaseDate",
             new { start, end }).AsList();
     }
 
@@ -62,7 +86,7 @@ public class IssueRepository(IDatabase db) : IIssueRepository
             """
             SELECT i.* FROM Issues i
             JOIN Titles t ON t.Id = i.TitleId
-            WHERE t.Monitored = 1 AND i.Monitored = 1 AND i.IssueFileId IS NULL AND i.ReleaseDate <= @today
+            WHERE i.Ignored = 0 AND t.Monitored = 1 AND i.Monitored = 1 AND i.IssueFileId IS NULL AND i.ReleaseDate <= @today
             ORDER BY i.ReleaseDate DESC
             """,
             new { today }).AsList();
@@ -71,7 +95,7 @@ public class IssueRepository(IDatabase db) : IIssueRepository
     public List<Issue> WithFiles()
     {
         using var conn = db.Open();
-        return conn.Query<Issue>("SELECT * FROM Issues WHERE IssueFileId IS NOT NULL").AsList();
+        return conn.Query<Issue>("SELECT * FROM Issues WHERE IssueFileId IS NOT NULL AND Ignored = 0").AsList();
     }
 
     public void InsertMany(IEnumerable<Issue> issues)
@@ -80,8 +104,8 @@ public class IssueRepository(IDatabase db) : IIssueRepository
         using var tx = conn.BeginTransaction();
         conn.Execute(
             """
-            INSERT INTO Issues (TitleId, Number, SortKey, IssueTitle, ReleaseDate, Monitored, IssueFileId, ExternalId, CoverUrl)
-            VALUES (@TitleId, @Number, @SortKey, @IssueTitle, @ReleaseDate, @Monitored, @IssueFileId, @ExternalId, @CoverUrl)
+            INSERT INTO Issues (TitleId, Number, SortKey, IssueTitle, ReleaseDate, Monitored, IssueFileId, ExternalId, CoverUrl, Ignored)
+            VALUES (@TitleId, @Number, @SortKey, @IssueTitle, @ReleaseDate, @Monitored, @IssueFileId, @ExternalId, @CoverUrl, @Ignored)
             """,
             issues, tx);
         tx.Commit();
@@ -93,7 +117,7 @@ public class IssueRepository(IDatabase db) : IIssueRepository
         conn.Execute(
             """
             UPDATE Issues SET Number = @Number, SortKey = @SortKey, IssueTitle = @IssueTitle, ReleaseDate = @ReleaseDate,
-                Monitored = @Monitored, IssueFileId = @IssueFileId, ExternalId = @ExternalId, CoverUrl = @CoverUrl
+                Monitored = @Monitored, IssueFileId = @IssueFileId, ExternalId = @ExternalId, CoverUrl = @CoverUrl, Ignored = @Ignored
             WHERE Id = @Id
             """,
             issue);

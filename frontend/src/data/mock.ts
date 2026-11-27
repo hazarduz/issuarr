@@ -16,7 +16,7 @@ export interface Issue {
 export interface Title {
   id: string;
   /** Server statistics; when absent they're computed from issues (demo data). */
-  serverStats?: { have: number; total: number; missing: number; sizeBytes: number; next?: string };
+  serverStats?: { have: number; total: number; missing: number; sizeBytes: number; next?: string; hidden?: number };
   coverUrl?: string;
   metadataSource?: string;
   externalId?: string;

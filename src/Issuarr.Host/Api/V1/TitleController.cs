@@ -18,6 +18,7 @@ public class TitleController(
     IConfigService config,
     ICommandService commands,
     IEnumerable<IBookSearch> bookSearch,
+    IIssueManagementService issueManagement,
     IIssueFileRepository files,
     ResourceMapper mapper) : ControllerBase
 {
@@ -211,6 +212,31 @@ public class TitleController(
         {
             return NotFound();
         }
+    }
+
+    /// <summary>Entries in the title's metadata (book list / issue list) that an item can be matched to.</summary>
+    [HttpGet("{id:int}/candidates")]
+    public async Task<ActionResult<List<MetadataCandidate>>> Candidates(int id, CancellationToken ct)
+    {
+        try
+        {
+            return await issueManagement.Candidates(id, ct);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception e) when (e is ArgumentException or MetadataException or HttpRequestException)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+    }
+
+    [HttpPost("{id:int}/restorehidden")]
+    public IActionResult RestoreHidden(int id)
+    {
+        issueManagement.RestoreHidden(id);
+        return Ok();
     }
 
     [HttpGet("{id:int}/files")]

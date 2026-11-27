@@ -74,7 +74,8 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
                 IssueFileCount: aired.Count(i => i.File != null),
                 MissingCount: aired.Count(i => i.Status == IssueStatus.Missing),
                 SizeOnDisk: mapped.Sum(i => i.File?.Size ?? 0),
-                NextIssue: next?.ReleaseDate),
+                NextIssue: next?.ReleaseDate,
+                HiddenCount: issues.CountIgnored(title.Id)),
             Issues = includeIssues ? mapped : null,
         };
     }

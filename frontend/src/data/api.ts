@@ -48,7 +48,7 @@ export interface ApiTitle {
   cover?: string;
   metadataSourceName?: string;
   externalId?: string;
-  statistics: { issueCount: number; issueFileCount: number; missingCount: number; sizeOnDisk: number; nextIssue?: string };
+  statistics: { issueCount: number; issueFileCount: number; missingCount: number; sizeOnDisk: number; nextIssue?: string; hiddenCount?: number };
   issues?: ApiIssue[];
 }
 
@@ -273,6 +273,17 @@ export interface RenamePreview {
   newPath: string;
 }
 
+export interface MetadataCandidate {
+  externalId: string;
+  number: string;
+  name?: string;
+  releaseDate?: string;
+  coverUrl?: string;
+  localIssueId?: number;
+  localHasFile: boolean;
+  localHidden: boolean;
+}
+
 export interface IssueFileInfo {
   id: number;
   relativePath: string;
@@ -381,6 +392,7 @@ export function toTitle(t: ApiTitle): Title {
       missing: t.statistics.missingCount,
       sizeBytes: t.statistics.sizeOnDisk,
       next: t.statistics.nextIssue,
+      hidden: t.statistics.hiddenCount ?? 0,
     },
   };
 }
@@ -469,6 +481,12 @@ export const api = {
     else titles.push(t);
     return t;
   },
+  candidates: (titleId: string | number) => request<MetadataCandidate[]>(`/title/${titleId}/candidates`),
+  matchIssue: (issueId: number, externalId: string) => request('/issue/' + issueId + '/match', json('POST', { externalId })),
+  editIssue: (issueId: number, number: string, title: string | undefined, releaseDate: string) =>
+    request('/issue/' + issueId, json('PUT', { number, title, releaseDate })),
+  deleteIssue: (issueId: number, deleteFile: boolean) => request(`/issue/${issueId}?deleteFile=${deleteFile}`, { method: 'DELETE' }),
+  restoreHidden: (titleId: string | number) => request(`/title/${titleId}/restorehidden`, { method: 'POST' }),
   titleFiles: (id: string | number) => request<IssueFileInfo[]>(`/title/${id}/files`),
   deleteIssueFile: (id: number) => request(`/issuefile/${id}`, { method: 'DELETE' }),
   renamePreview: (id: string | number) => request<RenamePreview[]>(`/title/${id}/rename`),

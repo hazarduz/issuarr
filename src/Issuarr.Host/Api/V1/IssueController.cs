@@ -4,11 +4,75 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Issuarr.Host.Api.V1;
 
+public record IssueEditRequest(string Number, string? Title, string ReleaseDate);
+
+public record IssueMatchRequest(string ExternalId);
+
 [ApiController]
 [Route("api/v1/issue")]
-public class IssueController(IIssueRepository issues, IIssueFileRepository files, ITitleService titles, ResourceMapper mapper)
+public class IssueController(IIssueRepository issues, IIssueFileRepository files, ITitleService titles, IIssueManagementService manage, ResourceMapper mapper)
     : ControllerBase
 {
+    [HttpPut("{id:int}")]
+    public ActionResult<IssueResource> Edit(int id, [FromBody] IssueEditRequest req) => Run(() => manage.Edit(id, req.Number, req.Title, req.ReleaseDate));
+
+    [HttpPost("{id:int}/match")]
+    public async Task<ActionResult<IssueResource>> Match(int id, [FromBody] IssueMatchRequest req, CancellationToken ct)
+    {
+        try
+        {
+            return ToResource(await manage.Match(id, req.ExternalId, ct));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception e) when (e is ArgumentException or Core.Metadata.MetadataException or HttpRequestException)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+    }
+
+    [HttpDelete("{id:int}")]
+    public IActionResult Delete(int id, [FromQuery] bool deleteFile = false)
+    {
+        try
+        {
+            manage.Delete(id, deleteFile);
+            return Ok();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+    }
+
+    private ActionResult<IssueResource> Run(Func<Issue> action)
+    {
+        try
+        {
+            return ToResource(action());
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (ArgumentException e)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+    }
+
+    private IssueResource ToResource(Issue issue)
+    {
+        var title = titles.Get(issue.TitleId)!;
+        return mapper.Issue(issue, title, files.GetByTitle(title.Id).ToDictionary(f => f.Id));
+    }
+
     [HttpGet]
     public ActionResult<List<IssueResource>> GetByTitle([FromQuery] int titleId)
     {

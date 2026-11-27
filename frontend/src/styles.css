@@ -1703,3 +1703,6 @@ div.folder-row:hover {
   background-size: 100% 100%;
   mask-image: none;
 }
+.icon-btn.danger-hover:hover {
+  color: var(--danger);
+}

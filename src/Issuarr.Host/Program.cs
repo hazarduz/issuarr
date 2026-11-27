@@ -60,6 +60,7 @@ public class Program
         services.AddSingleton<ITitleService, TitleService>();
         services.AddSingleton<IRefreshTitleService, RefreshTitleService>();
         services.AddSingleton<ITitleManagementService, TitleManagementService>();
+        services.AddSingleton<IIssueManagementService, IssueManagementService>();
         services.AddSingleton<IRootFolderService, RootFolderService>();
         services.AddSingleton<ILibraryImportService, LibraryImportService>();
         services.AddSingleton<IConfigService, ConfigService>();

@@ -29,6 +29,9 @@ public class Issue
     public int? IssueFileId { get; set; }
     public string? ExternalId { get; set; }
     public string? CoverUrl { get; set; }
+
+    /// <summary>Deleted by the user; kept so a metadata refresh doesn't add it back.</summary>
+    public bool Ignored { get; set; }
 }
 
 public class IssueFile
