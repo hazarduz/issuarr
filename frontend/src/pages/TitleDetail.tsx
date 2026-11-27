@@ -6,6 +6,7 @@ import {
   FolderOpen,
   HardDrive,
   History,
+  Link2,
   Loader2,
   Pencil,
   RefreshCw,
@@ -17,6 +18,7 @@ import {
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Cover } from '../components/Cover';
+import { MatchDialog } from '../components/MatchDialog';
 import { MonitorToggle, ProgressBar, StatusPill } from '../components/Status';
 import { DeleteTitleDialog, EditTitleDialog, FilesDialog, HistoryDialog, InteractiveSearchDialog, RenameDialog } from '../components/TitleDialogs';
 import { useToast } from '../components/Toast';
@@ -25,7 +27,7 @@ import { api, isConnected } from '../data/api';
 import { kindLabel, parseDate, stats, titles, type Issue } from '../data/mock';
 import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
-type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | { search: Issue | null };
+type Dialog = 'edit' | 'delete' | 'rename' | 'files' | 'history' | 'match' | { search: Issue | null };
 
 export default function TitleDetail() {
   useLibraryVersion();
@@ -45,7 +47,8 @@ export default function TitleDetail() {
     return [...g.entries()];
   }, [title, title?.issues]);
 
-  const [open, setOpen] = useState<Record<string, boolean>>(() => (byYear[0] ? { [byYear[0][0]]: true } : {}));
+  // Explicit open/closed choices; the newest year is open unless the user closed it.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
 
   if (!title) {
     return (
@@ -119,6 +122,7 @@ export default function TitleDetail() {
         <Tool icon={FolderOpen} label="Manage Files" onClick={needsLive('files')} />
         <Tool icon={History} label="History" onClick={needsLive('history')} />
         <Sep />
+        <Tool icon={Link2} label={title.metadataSource ? 'Rematch' : 'Match'} onClick={needsLive('match')} />
         <Tool icon={Pencil} label="Edit" onClick={needsLive('edit')} />
         <Tool icon={Trash2} label="Delete" onClick={needsLive('delete')} />
         <Grow />
@@ -153,7 +157,17 @@ export default function TitleDetail() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
               {title.status === 'ended' ? <span className="pill info">Ended</span> : <span className="pill ok">Continuing</span>}
-              {title.metadataSource && <span className="pill">{title.metadataSource === 'metron' ? 'Metron' : 'ComicVine'}</span>}
+              {title.metadataSource ? (
+                <span className="pill clickable" title="Change match" onClick={needsLive('match')}>
+                  <Link2 size={11} /> {title.metadataSource === 'metron' ? 'Metron' : 'ComicVine'}
+                </span>
+              ) : (
+                title.kind === 'comic' && (
+                  <span className="pill warn clickable" title="Link to ComicVine or Metron for the full issue list, dates and cover" onClick={needsLive('match')}>
+                    <Link2 size={11} /> Not matched
+                  </span>
+                )
+              )}
               {title.tags.map((t) => (
                 <span className="tag" key={t}>
                   {t}
@@ -196,13 +210,13 @@ export default function TitleDetail() {
             </div>
           </div>
         )}
-        {byYear.map(([year, issues]) => {
+        {byYear.map(([year, issues], index) => {
           const have = issues.filter((i) => i.status === 'downloaded').length;
           const aired = issues.filter((i) => i.status !== 'unaired').length;
-          const isOpen = !!open[year];
+          const isOpen = open[year] ?? index === 0;
           return (
             <div className="card year-block" key={year}>
-              <div className="year-head" onClick={() => setOpen((o) => ({ ...o, [year]: !o[year] }))}>
+              <div className="year-head" onClick={() => setOpen((o) => ({ ...o, [year]: !isOpen }))}>
                 <span onClick={(e) => e.stopPropagation()}>
                   <MonitorToggle on={issues.some((i) => i.monitored)} onClick={() => setIssuesMonitored(issues, !issues.some((i) => i.monitored))} />
                 </span>
@@ -301,6 +315,34 @@ export default function TitleDetail() {
       {dialog === 'rename' && <RenameDialog title={title} onClose={() => setDialog(null)} />}
       {dialog === 'files' && <FilesDialog title={title} onClose={() => setDialog(null)} />}
       {dialog === 'history' && <HistoryDialog title={title} onClose={() => setDialog(null)} />}
+      {dialog === 'match' && (
+        <MatchDialog
+          initialTerm={title.name}
+          currentId={title.metadataSource && title.externalId ? `${title.metadataSource}:${title.externalId}` : undefined}
+          onClose={() => setDialog(null)}
+          onPick={async (r, useName) => {
+            try {
+              const { warning } = await api.matchTitle(title.id, r.source, r.externalId, useName);
+              notifyLibrary();
+              setDialog(null);
+              toast(warning ?? `Matched to ${r.name}${r.year ? ` (${r.year})` : ''}`, warning ? 'error' : 'success');
+            } catch (e) {
+              toast(e instanceof Error ? e.message : 'Match failed', 'error');
+            }
+          }}
+          onUnmatch={async () => {
+            try {
+              await api.unmatchTitle(title.id);
+              await api.loadTitle(title.id);
+              notifyLibrary();
+              setDialog(null);
+              toast('Unmatched. Issues and files are kept.');
+            } catch (e) {
+              toast(e instanceof Error ? e.message : 'Unmatch failed', 'error');
+            }
+          }}
+        />
+      )}
       {dialog && typeof dialog === 'object' && (
         <InteractiveSearchDialog
           title={title}

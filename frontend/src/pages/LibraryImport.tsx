@@ -1,14 +1,16 @@
-import { CheckCircle2, CircleAlert, FileWarning, FolderInput, FolderOpen, Loader2 } from 'lucide-react';
+import { CheckCircle2, CircleAlert, FileWarning, FolderInput, FolderOpen, Link2, Loader2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FolderPicker } from '../components/FolderPicker';
+import { MatchDialog } from '../components/MatchDialog';
 import { useToast } from '../components/Toast';
-import { api, formatBytes, isConnected, type ImportCandidate, type ImportResult } from '../data/api';
+import { api, formatBytes, isConnected, type ImportCandidate, type ImportResult, type LookupResult } from '../data/api';
 import { titles, type Kind } from '../data/mock';
 import { notifyLibrary } from '../data/store';
 
 interface Row extends ImportCandidate {
   selected: boolean;
+  match?: LookupResult;
 }
 
 // Shown when the UI runs without a backend, so the flow can still be tried.
@@ -26,6 +28,7 @@ export default function LibraryImport() {
   const [scanning, setScanning] = useState(false);
   const [importing, setImporting] = useState(false);
   const [results, setResults] = useState<ImportResult[] | null>(null);
+  const [matching, setMatching] = useState<Row | null>(null);
 
   const scan = async (path: string) => {
     setPicking(false);
@@ -56,7 +59,17 @@ export default function LibraryImport() {
     try {
       let res: ImportResult[];
       if (isConnected()) {
-        res = await api.libraryImport(selected.map((r) => ({ path: r.path, name: r.name, year: r.year, kind: r.kind })));
+        res = await api.libraryImport(
+          selected.map((r) => ({
+            path: r.path,
+            name: r.name,
+            year: r.year,
+            kind: r.kind,
+            metadataSource: r.match?.source,
+            externalId: r.match?.externalId,
+            coverUrl: r.match?.coverUrl,
+          })),
+        );
         // Pull the new titles into the library so they show up straight away.
         await Promise.all(res.filter((r) => r.titleId).map((r) => api.loadTitle(r.titleId!)));
         notifyLibrary();
@@ -135,6 +148,7 @@ export default function LibraryImport() {
                     <th>Title</th>
                     <th>Type</th>
                     <th>Year</th>
+                    <th>Match</th>
                     <th>Issues found</th>
                     <th>Size</th>
                   </tr>
@@ -188,6 +202,21 @@ export default function LibraryImport() {
                             onChange={(e) => update(r.path, { year: e.target.value ? Number(e.target.value.replace(/\D/g, '')) || undefined : undefined })}
                           />
                         </td>
+                        <td>
+                          {existing ? null : r.match ? (
+                            <span className="pill ok" style={{ maxWidth: 220 }} title={`${r.match.name} (${r.match.year ?? '?'}) · ${r.match.source}`}>
+                              <Link2 size={11} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {r.match.name} {r.match.year ? `(${r.match.year})` : ''}
+                              </span>
+                              <X size={12} style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => update(r.path, { match: undefined })} />
+                            </span>
+                          ) : (
+                            <button className="btn sm" onClick={() => (isConnected() ? setMatching(r) : toast('Matching needs the Issuarr backend.', 'error'))}>
+                              <Link2 size={13} /> Match
+                            </button>
+                          )}
+                        </td>
                         <td className="num">
                           {r.matchedFileCount}
                           {r.matchedFileCount < r.fileCount && (
@@ -235,6 +264,7 @@ export default function LibraryImport() {
                   </div>
                   <div className="muted" style={{ fontSize: 13 }}>
                     {r.error ?? `${r.issuesImported} issue${r.issuesImported === 1 ? '' : 's'} imported`}
+                    {r.warning && <div style={{ color: 'var(--warn)' }}>{r.warning}</div>}
                     {r.unmatchedFiles.length > 0 && ` · ${r.unmatchedFiles.length} file${r.unmatchedFiles.length === 1 ? '' : 's'} skipped`}
                   </div>
                   {r.unmatchedFiles.length > 0 && (
@@ -262,6 +292,19 @@ export default function LibraryImport() {
             </Link>
           </div>
         </>
+      )}
+
+      {matching && (
+        <MatchDialog
+          initialTerm={matching.name + (matching.year ? ` ${matching.year}` : '')}
+          confirmLabel="Use this series"
+          showNameOption={false}
+          onClose={() => setMatching(null)}
+          onPick={(m) => {
+            update(matching.path, { match: m, name: m.name, year: m.year ?? matching.year, kind: 'comic', selected: true });
+            setMatching(null);
+          }}
+        />
       )}
 
       {picking && <FolderPicker initialPath={folder ?? ''} onSelect={scan} onClose={() => setPicking(false)} />}

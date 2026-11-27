@@ -5,7 +5,7 @@ namespace Issuarr.Host.Api.V1;
 
 [ApiController]
 [Route("api/v1/libraryimport")]
-public class LibraryImportController(ILibraryImportService import) : ControllerBase
+public class LibraryImportController(ILibraryImportService import, Issuarr.Core.Titles.IRefreshTitleService refresh) : ControllerBase
 {
     /// <summary>Scan a folder and list the titles that could be imported from it.</summary>
     [HttpGet]
@@ -31,13 +31,31 @@ public class LibraryImportController(ILibraryImportService import) : ControllerB
     }
 
     [HttpPost]
-    public ActionResult<List<ImportResult>> Import([FromBody] List<ImportRequest> items)
+    public async Task<ActionResult<List<ImportResult>>> Import([FromBody] List<ImportRequest> items, CancellationToken ct)
     {
         if (items.Count == 0)
         {
             return ValidationProblem("Nothing selected to import");
         }
 
-        return import.Import(items);
+        var results = import.Import(items);
+
+        // Titles matched to ComicVine/Metron get their full issue list straight away.
+        foreach (var (req, result) in items.Zip(results))
+        {
+            if (result.TitleId is { } id && !string.IsNullOrEmpty(req.ExternalId))
+            {
+                try
+                {
+                    await refresh.Refresh(id, ct);
+                }
+                catch (Exception e) when (e is not OperationCanceledException)
+                {
+                    result.Warning = $"Imported, but couldn't load issues from the metadata source: {e.Message}";
+                }
+            }
+        }
+
+        return results;
     }
 }

@@ -20,7 +20,7 @@ import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
 type View = 'posters' | 'overview' | 'table';
 type Sort = 'name' | 'missing' | 'next' | 'added';
-type FilterId = 'all' | 'monitored' | 'unmonitored' | 'missing' | 'continuing' | 'ended';
+type FilterId = 'all' | 'monitored' | 'unmonitored' | 'missing' | 'continuing' | 'ended' | 'unmatched';
 
 const filters: { id: FilterId; label: string; test: (t: Title) => boolean }[] = [
   { id: 'all', label: 'All', test: () => true },
@@ -29,6 +29,7 @@ const filters: { id: FilterId; label: string; test: (t: Title) => boolean }[] = 
   { id: 'missing', label: 'Missing issues', test: (t) => stats(t).missing > 0 },
   { id: 'continuing', label: 'Continuing', test: (t) => t.status === 'continuing' },
   { id: 'ended', label: 'Ended', test: (t) => t.status === 'ended' },
+  { id: 'unmatched', label: 'Not matched to ComicVine/Metron', test: (t) => t.kind === 'comic' && !t.metadataSource },
 ];
 
 function readView(): View {

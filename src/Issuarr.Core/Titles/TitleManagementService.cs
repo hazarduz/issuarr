@@ -28,10 +28,20 @@ public interface ITitleManagementService
     List<RenamePreview> PreviewRename(int titleId);
     int Rename(int titleId, IReadOnlyCollection<int>? fileIds);
     void DeleteIssueFile(int fileId);
+
+    /// <summary>
+    /// Links a title (e.g. one created by Library Import) to a series on ComicVine/Metron, then
+    /// refreshes it. Existing issues are matched by number so their files are kept.
+    /// </summary>
+    Task<Title> Match(int titleId, string source, string externalId, bool useMetadataName, CancellationToken ct);
+
+    void Unmatch(int titleId);
 }
 
 public class TitleManagementService(
     ITitleService titles,
+    ITitleRepository titleRepo,
+    IEnumerable<Metadata.IMetadataProvider> metadata,
     IRefreshTitleService refresh,
     IIssueRepository issues,
     IIssueFileRepository files,
@@ -85,6 +95,64 @@ public class TitleManagementService(
         if (monitored.Count > 0)
         {
             issues.SetMonitored(monitored.Select(i => i.Id), true);
+        }
+    }
+
+    public async Task<Title> Match(int titleId, string source, string externalId, bool useMetadataName, CancellationToken ct)
+    {
+        var title = titleRepo.Get(titleId) ?? throw new KeyNotFoundException("Title not found");
+        var provider = metadata.FirstOrDefault(m => m.Source == source) ?? throw new ArgumentException($"Unknown metadata source: {source}");
+        var other = titleRepo.All().FirstOrDefault(t => t.Id != titleId && t.MetadataSource == source && t.ExternalId == externalId);
+        if (other != null)
+        {
+            throw new ArgumentException($"That series is already matched to \"{other.Name}\" in your library");
+        }
+
+        // Look the series up first so a bad id fails before anything changes.
+        var series = await provider.GetSeries(externalId, ct);
+
+        // Switching to a different series: forget the old series' issue ids so numbers are re-matched.
+        if (title.ExternalId != null && (title.ExternalId != externalId || title.MetadataSource != source))
+        {
+            foreach (var issue in issues.GetByTitle(titleId).Where(i => i.ExternalId != null))
+            {
+                issue.ExternalId = null;
+                issues.Update(issue);
+            }
+        }
+
+        title.MetadataSource = source;
+        title.ExternalId = externalId;
+        if (useMetadataName && !string.IsNullOrWhiteSpace(series.Name))
+        {
+            title.Name = series.Name;
+            title.SortName = TitleService.SortName(series.Name);
+        }
+
+        titleRepo.Update(title);
+
+        try
+        {
+            await refresh.Refresh(titleId, ct);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            throw new TitleAddedWithWarningException(titleRepo.Get(titleId)!, $"Matched, but couldn't load issues: {e.Message}");
+        }
+
+        return titleRepo.Get(titleId)!;
+    }
+
+    public void Unmatch(int titleId)
+    {
+        var title = titleRepo.Get(titleId) ?? throw new KeyNotFoundException("Title not found");
+        title.MetadataSource = null;
+        title.ExternalId = null;
+        titleRepo.Update(title);
+        foreach (var issue in issues.GetByTitle(titleId).Where(i => i.ExternalId != null))
+        {
+            issue.ExternalId = null;
+            issues.Update(issue);
         }
     }
 

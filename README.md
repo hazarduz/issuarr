@@ -24,6 +24,7 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 
 - **Add titles:** search ComicVine or Metron for comic series (with covers and full issue lists), or add a magazine by how often it comes out and let Issuarr work out the issues
 - **Library import:** scan an existing collection; each folder becomes a title, each file an issue
+- **Manual matching:** link imported titles to the right ComicVine/Metron series (during import or later from the title page); your files stay on their issues and the missing ones are filled in
 - **Indexers:** Newznab, Torznab, or Prowlarr (search all its indexers at once)
 - **Download clients:** qBittorrent, Deluge, Transmission, SABnzbd, NZBGet, with remote path mappings for Docker setups
 - **Automatic downloads:** RSS sync every 15 minutes, plus search on add, per title, per issue or for everything missing
@@ -139,7 +140,8 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET | `/api/v1/filesystem?path=` | Browse server folders (used by the folder picker) |
 | GET | `/api/v1/parse?title=` | Show how a release name is parsed |
 | GET / POST / PUT / DELETE | `/api/v1/indexer` · `/downloadclient` · `/notification` | Providers (+ `/schema`, `/test`) |
-| GET | `/api/v1/title/lookup?term=` | Search ComicVine / Metron |
+| GET | `/api/v1/title/lookup?term=&source=` | Search ComicVine / Metron |
+| POST / DELETE | `/api/v1/title/{id}/match` | Match a title to a series `{ source, externalId, useMetadataName }` / unmatch |
 | GET / POST | `/api/v1/release?titleId=&issueId=` | Interactive search / grab a release |
 | POST / GET | `/api/v1/command` | Run jobs: `RefreshTitle`, `RefreshAll`, `TitleSearch`, `IssueSearch`, `MissingSearch`, `RssSync`, `ProcessDownloads`, `RenameTitle` |
 | GET / DELETE | `/api/v1/queue` | Download queue / remove (`?removeFromClient=&blocklist=`) |

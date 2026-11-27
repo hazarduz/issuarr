@@ -46,7 +46,8 @@ public class MetadataException(string message) : Exception(message);
 /// <summary>ComicVine (comicvine.gamespot.com). Needs a free API key.</summary>
 public partial class ComicVine(IHttpClientFactory http, IConfigService config) : IMetadataProvider
 {
-    private const string Api = "https://comicvine.gamespot.com/api/";
+    // Overridable for testing or a caching proxy.
+    private static readonly string Api = (Environment.GetEnvironmentVariable("ISSUARR_COMICVINE_URL") ?? "https://comicvine.gamespot.com/api").TrimEnd('/') + "/";
     private static readonly SemaphoreSlim Throttle = new(1, 1);
     private static DateTime _last = DateTime.MinValue;
 

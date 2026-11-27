@@ -19,6 +19,7 @@ export interface Title {
   serverStats?: { have: number; total: number; missing: number; sizeBytes: number; next?: string };
   coverUrl?: string;
   metadataSource?: string;
+  externalId?: string;
   slug: string;
   name: string;
   kind: Kind;

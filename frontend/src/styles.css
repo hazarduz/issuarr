@@ -1658,3 +1658,35 @@ div.folder-row:hover {
   justify-content: flex-end;
   margin-top: 12px;
 }
+
+/* Match dialog rows */
+.match-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.match-row:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.match-row.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.match-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pill.clickable {
+  cursor: pointer;
+}
+.pill.clickable:hover {
+  filter: brightness(1.2);
+}

@@ -29,6 +29,9 @@ public class ImportRequest
     public int? Year { get; set; }
     public TitleKind Kind { get; set; }
     public string? Publisher { get; set; }
+    public string? MetadataSource { get; set; }
+    public string? ExternalId { get; set; }
+    public string? CoverUrl { get; set; }
 }
 
 public class ImportResult
@@ -39,6 +42,7 @@ public class ImportResult
     public int IssuesImported { get; set; }
     public List<string> UnmatchedFiles { get; set; } = [];
     public string? Error { get; set; }
+    public string? Warning { get; set; }
 }
 
 public interface ILibraryImportService
@@ -144,9 +148,15 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
             throw new ArgumentException($"Folder not found: {req.Path}");
         }
 
-        if (titles.All().Any(t => SamePath(t.Path, dir.FullName)))
+        var all = titles.All();
+        if (all.Any(t => SamePath(t.Path, dir.FullName)))
         {
             throw new ArgumentException("This folder is already in your library");
+        }
+
+        if (!string.IsNullOrEmpty(req.ExternalId) && all.FirstOrDefault(t => t.MetadataSource == req.MetadataSource && t.ExternalId == req.ExternalId) is { } dup)
+        {
+            throw new ArgumentException($"That series is already in your library as \"{dup.Name}\"");
         }
 
         var name = string.IsNullOrWhiteSpace(req.Name) ? ParseFolderName(dir.Name).Name : req.Name.Trim();
@@ -188,6 +198,9 @@ public partial class LibraryImportService(ITitleService titles, IIssueRepository
             Monitored = true,
             QualityProfile = req.Kind == TitleKind.Comic ? "CBZ / CBR" : "Any",
             Path = dir.FullName,
+            MetadataSource = string.IsNullOrEmpty(req.ExternalId) ? null : req.MetadataSource,
+            ExternalId = string.IsNullOrEmpty(req.ExternalId) ? null : req.ExternalId,
+            CoverUrl = req.CoverUrl,
             Palette = [.. Palettes[(int)((uint)ReleaseParser.CleanTitle(name).GetHashCode(StringComparison.Ordinal) % Palettes.Length)]],
         }, "");
 

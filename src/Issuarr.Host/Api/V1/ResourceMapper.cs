@@ -66,6 +66,7 @@ public class ResourceMapper(IIssueRepository issues, IIssueFileRepository files,
             Palette = title.Palette,
             Added = title.Added,
             MetadataSourceName = title.MetadataSource,
+            ExternalId = title.ExternalId,
             Cover = title.CoverUrl,
             LastRefreshed = title.LastRefreshed,
             Statistics = new TitleStatistics(

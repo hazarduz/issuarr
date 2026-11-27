@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Issuarr.Host.Api.V1;
 
+public record MatchRequest(string Source, string ExternalId, bool UseMetadataName = true);
+
 [ApiController]
 [Route("api/v1/title")]
 public class TitleController(
@@ -37,9 +39,9 @@ public class TitleController(
 
     /// <summary>Search the metadata source (ComicVine or Metron) for series to add.</summary>
     [HttpGet("lookup")]
-    public async Task<ActionResult<object>> Lookup([FromQuery] string term, CancellationToken ct)
+    public async Task<ActionResult<object>> Lookup([FromQuery] string term, CancellationToken ct, [FromQuery] string? source = null)
     {
-        var provider = metadata.FirstOrDefault(m => m.Source == config.MetadataSource) ?? metadata.First();
+        var provider = metadata.FirstOrDefault(m => m.Source == (source ?? config.MetadataSource)) ?? metadata.First();
         try
         {
             var results = await provider.Search(term, ct);
@@ -114,6 +116,45 @@ public class TitleController(
 
         Response.Headers["X-Issuarr-Warning"] = warning ?? "";
         return CreatedAtAction(nameof(Get), new { id = added.Id }, mapper.Title(added, includeIssues: true));
+    }
+
+    /// <summary>Link a title to a ComicVine/Metron series (keeps existing files, fills in the issue list).</summary>
+    [HttpPost("{id:int}/match")]
+    public async Task<ActionResult<TitleResource>> Match(int id, [FromBody] MatchRequest req, CancellationToken ct)
+    {
+        try
+        {
+            var title = await management.Match(id, req.Source, req.ExternalId, req.UseMetadataName, ct);
+            Response.Headers["X-Issuarr-Warning"] = "";
+            return mapper.Title(title, includeIssues: true);
+        }
+        catch (TitleAddedWithWarningException e)
+        {
+            Response.Headers["X-Issuarr-Warning"] = e.Message;
+            return mapper.Title(e.Title, includeIssues: true);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (Exception e) when (e is ArgumentException or MetadataException or HttpRequestException)
+        {
+            return BadRequest(new { message = e.Message });
+        }
+    }
+
+    [HttpDelete("{id:int}/match")]
+    public IActionResult Unmatch(int id)
+    {
+        try
+        {
+            management.Unmatch(id);
+            return Ok();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpGet("{id:int}/files")]

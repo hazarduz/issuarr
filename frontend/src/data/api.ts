@@ -47,6 +47,7 @@ export interface ApiTitle {
   palette: string[];
   cover?: string;
   metadataSourceName?: string;
+  externalId?: string;
   statistics: { issueCount: number; issueFileCount: number; missingCount: number; sizeOnDisk: number; nextIssue?: string };
   issues?: ApiIssue[];
 }
@@ -78,6 +79,7 @@ export interface ImportResult {
   issuesImported: number;
   unmatchedFiles: string[];
   error?: string;
+  warning?: string;
 }
 
 export interface HealthItem {
@@ -354,6 +356,7 @@ export function toTitle(t: ApiTitle): Title {
     palette: t.palette.length === 2 ? [t.palette[0], t.palette[1]] : fallbackPalette,
     coverUrl: t.cover,
     metadataSource: t.metadataSourceName,
+    externalId: t.externalId,
     issues,
     serverStats: {
       have: t.statistics.issueFileCount,
@@ -403,7 +406,25 @@ export const api = {
     return request<ApiTitle>(`/title/${t.id}`, json('PUT', { ...t, id: Number(t.id), issues: undefined, serverStats: undefined }));
   },
   deleteTitle: (id: string | number, deleteFiles: boolean) => request(`/title/${id}?deleteFiles=${deleteFiles}`, { method: 'DELETE' }),
-  lookup: (term: string) => request<LookupResult[]>(`/title/lookup?term=${encodeURIComponent(term)}`),
+  lookup: (term: string, source?: string) =>
+    request<LookupResult[]>(`/title/lookup?term=${encodeURIComponent(term)}${source ? `&source=${source}` : ''}`),
+  matchTitle: async (id: string | number, source: string, externalId: string, useMetadataName: boolean) => {
+    if (!init) throw new DemoModeError();
+    const res = await fetch(`${init.apiRoot}/title/${id}/match`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey },
+      body: JSON.stringify({ source, externalId, useMetadataName }),
+    });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.detail ?? b.message ?? `Match failed: ${res.status}`);
+    }
+    const title = toTitle((await res.json()) as ApiTitle);
+    const i = titles.findIndex((x) => x.id === title.id);
+    if (i >= 0) titles[i] = title;
+    return { title, warning: res.headers.get('X-Issuarr-Warning') || undefined };
+  },
+  unmatchTitle: (id: string | number) => request(`/title/${id}/match`, { method: 'DELETE' }),
   addTitle: async (body: Record<string, unknown>) => {
     if (!init) throw new DemoModeError();
     const res = await fetch(`${init.apiRoot}/title`, {
@@ -470,7 +491,7 @@ export const api = {
   deleteRootFolder: (id: number) => request(`/rootfolder/${id}`, { method: 'DELETE' }),
   browse: (path: string) => request<FileSystemListing>(`/filesystem?path=${encodeURIComponent(path)}`),
   libraryScan: (path: string) => request<ImportCandidate[]>(`/libraryimport?path=${encodeURIComponent(path)}`),
-  libraryImport: (items: { path: string; name: string; year?: number; kind: Title['kind'] }[]) =>
+  libraryImport: (items: { path: string; name: string; year?: number; kind: Title['kind']; metadataSource?: string; externalId?: string; coverUrl?: string }[]) =>
     request<ImportResult[]>('/libraryimport', json('POST', items)),
 
   // System
