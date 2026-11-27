@@ -5,6 +5,7 @@ import { FolderPicker } from '../components/FolderPicker';
 import { useToast } from '../components/Toast';
 import { api, formatBytes, isConnected, type ImportCandidate, type ImportResult } from '../data/api';
 import { titles, type Kind } from '../data/mock';
+import { notifyLibrary } from '../data/store';
 
 interface Row extends ImportCandidate {
   selected: boolean;
@@ -58,6 +59,7 @@ export default function LibraryImport() {
         res = await api.libraryImport(selected.map((r) => ({ path: r.path, name: r.name, year: r.year, kind: r.kind })));
         // Pull the new titles into the library so they show up straight away.
         await Promise.all(res.filter((r) => r.titleId).map((r) => api.loadTitle(r.titleId!)));
+        notifyLibrary();
       } else {
         res = selected.map((r) => ({ path: r.path, issuesImported: r.matchedFileCount, unmatchedFiles: [] }));
       }

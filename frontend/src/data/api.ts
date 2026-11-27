@@ -3,8 +3,8 @@
  *
  * On startup we ask the server for /initialize.json (API root + key, the same
  * handshake Sonarr/Radarr use). If that works, the library is loaded from the
- * API and replaces the built-in sample data. If not (e.g. the UI is being
- * previewed on its own), the sample data stays and the app runs in demo mode.
+ * API and replaces the built-in sample data. If not (e.g. the UI is previewed
+ * on its own), the sample data stays and the app runs in demo mode.
  */
 import { history, queue, setToday, titles, type Issue, type IssueStatus, type Title } from './mock';
 
@@ -15,6 +15,7 @@ interface Init {
   instanceName: string;
   version: string;
   isDemo: boolean;
+  authentication: string;
 }
 
 interface ApiIssue {
@@ -26,9 +27,10 @@ interface ApiIssue {
   monitored: boolean;
   status: IssueStatus;
   file?: { id: number; name: string; size: number; format: string };
+  coverUrl?: string;
 }
 
-interface ApiTitle {
+export interface ApiTitle {
   id: number;
   slug: string;
   name: string;
@@ -43,6 +45,8 @@ interface ApiTitle {
   overview?: string;
   tags: string[];
   palette: string[];
+  cover?: string;
+  metadataSourceName?: string;
   statistics: { issueCount: number; issueFileCount: number; missingCount: number; sizeOnDisk: number; nextIssue?: string };
   issues?: ApiIssue[];
 }
@@ -80,6 +84,183 @@ export interface HealthItem {
   source: string;
   type: 'notice' | 'warning' | 'error';
   message: string;
+  link?: string;
+}
+
+export type FieldType = 'text' | 'password' | 'number' | 'checkbox' | 'select' | 'url';
+
+export interface ProviderField {
+  name: string;
+  label: string;
+  type: FieldType;
+  helpText?: string;
+  default?: string;
+  required: boolean;
+  options?: string[];
+  advanced: boolean;
+}
+
+export interface ProviderSchema {
+  implementation: string;
+  displayName: string;
+  description: string;
+  protocol?: string;
+  fields: ProviderField[];
+}
+
+export interface Provider {
+  id: number;
+  name: string;
+  implementation: string;
+  implementationName?: string;
+  enable: boolean;
+  priority: number;
+  protocol?: string;
+  settings: Record<string, string>;
+}
+
+export type ProviderKind = 'indexer' | 'downloadclient' | 'notification';
+
+export interface Command {
+  id: number;
+  name: string;
+  titleId?: number;
+  status: 'queued' | 'started' | 'completed' | 'failed';
+  message?: string;
+  queued: string;
+  started?: string;
+  ended?: string;
+  manual: boolean;
+}
+
+export interface QueueRecord {
+  id: string;
+  titleId?: number;
+  titleName?: string;
+  titleSlug?: string;
+  issues?: string;
+  release: string;
+  downloadClient: string;
+  protocol: string;
+  indexer?: string;
+  size: number;
+  sizeLeft: number;
+  progress: number;
+  eta?: number;
+  status: 'queued' | 'downloading' | 'paused' | 'completed' | 'failed' | 'warning';
+  trackedState: string;
+  messages: string[];
+}
+
+export interface HistoryRecord {
+  id: number;
+  titleId: number;
+  titleName?: string;
+  titleSlug?: string;
+  issueId?: number;
+  issue?: string;
+  eventType: 'Grabbed' | 'Imported' | 'DownloadFailed' | 'FileDeleted' | 'FileRenamed' | 'ImportFailed';
+  sourceTitle: string;
+  date: string;
+  data: Record<string, string>;
+}
+
+export interface BlocklistRecord {
+  id: number;
+  titleId: number;
+  titleName?: string;
+  titleSlug?: string;
+  sourceTitle: string;
+  protocol: string;
+  indexer?: string;
+  message?: string;
+  date: string;
+}
+
+export interface Release {
+  guid: string;
+  title: string;
+  indexer: string;
+  protocol: string;
+  size: number;
+  seeders?: number;
+  peers?: number;
+  publishDate?: string;
+  infoUrl?: string;
+  titleId?: number;
+  titleName?: string;
+  issueId?: number;
+  issueNumber?: string;
+  format?: string;
+  approved: boolean;
+  rejections: string[];
+}
+
+export interface LookupResult {
+  source: string;
+  externalId: string;
+  name: string;
+  year?: number;
+  publisher?: string;
+  issueCount: number;
+  overview?: string;
+  coverUrl?: string;
+  siteUrl?: string;
+  existingTitleId?: number;
+  existingSlug?: string;
+}
+
+export interface QualityProfile {
+  name: string;
+  formats: string[];
+  cutoff: string;
+  upgradesAllowed: boolean;
+  description: string;
+}
+
+export interface HostConfig {
+  bindAddress: string;
+  port: number;
+  urlBase: string;
+  instanceName: string;
+  apiKey: string;
+  authenticationMethod: 'none' | 'forms' | 'basic' | 'external';
+  authenticationRequired: 'enabled' | 'disabledForLocalAddresses';
+  username: string;
+  password?: string;
+  hasPassword: boolean;
+}
+
+export interface RootFolder {
+  id: number;
+  path: string;
+  freeSpace?: number;
+  accessible: boolean;
+}
+
+export interface ScheduledTask {
+  name: string;
+  label: string;
+  interval: number;
+  lastRun?: string;
+  nextRun: string;
+}
+
+export interface RenamePreview {
+  issueFileId: number;
+  issueId: number;
+  issue: string;
+  existingPath: string;
+  newPath: string;
+}
+
+export interface IssueFileInfo {
+  id: number;
+  relativePath: string;
+  size: number;
+  format: string;
+  dateAdded: string;
+  exists: boolean;
 }
 
 let init: Init | null = null;
@@ -91,15 +272,40 @@ export function formatBytes(bytes: number) {
   if (bytes >= 1024 ** 4) return `${(bytes / 1024 ** 4).toFixed(1)} TB`;
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
   if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${Math.round(bytes / 1024)} KB`;
+  return `${Math.max(0, Math.round(bytes / 1024))} KB`;
+}
+
+export function formatEta(seconds?: number) {
+  if (seconds == null) return '—';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+export function timeAgo(iso?: string) {
+  if (!iso) return '—';
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  const future = diff < 0;
+  const s = Math.abs(diff);
+  const v = s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`;
+  return future ? `in ${v}` : `${v} ago`;
+}
+
+export class DemoModeError extends Error {
+  constructor() {
+    super('Not available with sample data. Run the Issuarr backend to use this.');
+  }
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  if (!init) throw new Error('Not connected to Issuarr backend');
+  if (!init) throw new DemoModeError();
   const res = await fetch(`${init.apiRoot}${path}`, {
     ...options,
     headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey, ...(options.headers ?? {}) },
   });
+  if (res.status === 401 && init.authentication !== 'none') {
+    window.location.href = `${init.urlBase}/login?returnUrl=${encodeURIComponent(window.location.pathname)}`;
+  }
   if (!res.ok) {
     // Surface the server's explanation (validation problems use "detail", others "message").
     let message = `${options.method ?? 'GET'} ${path} failed: ${res.status}`;
@@ -115,9 +321,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) });
+
 const fallbackPalette: [string, string] = ['#334155', '#64748b'];
 
-function toTitle(t: ApiTitle): Title {
+export function toTitle(t: ApiTitle): Title {
   const issues: Issue[] = (t.issues ?? []).map((i) => ({
     id: String(i.id),
     serverId: i.id,
@@ -126,7 +334,8 @@ function toTitle(t: ApiTitle): Title {
     releaseDate: i.releaseDate,
     status: i.status,
     monitored: i.monitored,
-    file: i.file ? { name: i.file.name, size: formatBytes(i.file.size), format: i.file.format } : undefined,
+    coverUrl: i.coverUrl,
+    file: i.file ? { id: i.file.id, name: i.file.name, size: formatBytes(i.file.size), format: i.file.format } : undefined,
   }));
   return {
     id: String(t.id),
@@ -143,6 +352,8 @@ function toTitle(t: ApiTitle): Title {
     overview: t.overview ?? '',
     tags: t.tags,
     palette: t.palette.length === 2 ? [t.palette[0], t.palette[1]] : fallbackPalette,
+    coverUrl: t.cover,
+    metadataSource: t.metadataSourceName,
     issues,
     serverStats: {
       have: t.statistics.issueFileCount,
@@ -157,12 +368,17 @@ function toTitle(t: ApiTitle): Title {
 /** Try to reach the backend. Resolves either way; check isConnected() afterwards. */
 export async function bootstrap() {
   try {
-    const res = await fetch('/initialize.json', { headers: { Accept: 'application/json' } });
+    const base = document.querySelector('base')?.getAttribute('href')?.replace(/\/$/, '') ?? '';
+    const res = await fetch(`${base}/initialize.json`, { headers: { Accept: 'application/json' } });
+    if (res.status === 401) {
+      const body = await res.json().catch(() => ({}));
+      window.location.href = body.loginUrl ?? `${base}/login`;
+      await new Promise(() => {}); // stop rendering while the browser navigates
+    }
     if (!res.ok || !res.headers.get('content-type')?.includes('json')) return;
     init = (await res.json()) as Init;
-    const list = await request<ApiTitle[]>('/title?includeIssues=true');
-    titles.splice(0, titles.length, ...list.map(toTitle));
-    // Download clients aren't wired up yet, so live mode starts with an empty queue/history.
+    await reloadTitles();
+    // The queue and history live on the Activity pages in live mode.
     queue.splice(0, queue.length);
     history.splice(0, history.length);
     const now = new Date();
@@ -173,51 +389,98 @@ export async function bootstrap() {
   }
 }
 
+/** Reload the whole library from the server. */
+export async function reloadTitles() {
+  const list = await request<ApiTitle[]>('/title?includeIssues=true');
+  titles.splice(0, titles.length, ...list.map(toTitle));
+}
+
 export const api = {
-  setIssuesMonitored: (issueIds: number[], monitored: boolean) =>
-    request('/issue/monitor', { method: 'PUT', body: JSON.stringify({ issueIds, monitored }) }),
-
-  updateTitle: async (title: Title) => {
-    const updated = await request<ApiTitle>(`/title/${title.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...title, id: Number(title.id), issues: undefined }),
-    });
-    return updated;
+  // Library
+  setIssuesMonitored: (issueIds: number[], monitored: boolean) => request('/issue/monitor', json('PUT', { issueIds, monitored })),
+  updateTitle: (title: Title, changes: Partial<Title> = {}) => {
+    const t = { ...title, ...changes };
+    return request<ApiTitle>(`/title/${t.id}`, json('PUT', { ...t, id: Number(t.id), issues: undefined, serverStats: undefined }));
   },
-
-  addTitle: async (t: Pick<Title, 'name' | 'kind' | 'publisher' | 'year' | 'palette'>, rootFolderPath: string) => {
-    const created = await request<ApiTitle>('/title', {
+  deleteTitle: (id: string | number, deleteFiles: boolean) => request(`/title/${id}?deleteFiles=${deleteFiles}`, { method: 'DELETE' }),
+  lookup: (term: string) => request<LookupResult[]>(`/title/lookup?term=${encodeURIComponent(term)}`),
+  addTitle: async (body: Record<string, unknown>) => {
+    if (!init) throw new DemoModeError();
+    const res = await fetch(`${init.apiRoot}/title`, {
       method: 'POST',
-      body: JSON.stringify({
-        ...t,
-        frequency: 'Monthly',
-        status: 'continuing',
-        monitored: true,
-        qualityProfile: t.kind === 'comic' ? 'CBZ / CBR' : 'Any',
-        tags: [],
-        rootFolderPath,
-      }),
+      headers: { 'Content-Type': 'application/json', 'X-Api-Key': init.apiKey },
+      body: JSON.stringify(body),
     });
-    const title = toTitle(created);
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.detail ?? b.message ?? b.title ?? `Add failed: ${res.status}`);
+    }
+    const title = toTitle((await res.json()) as ApiTitle);
     titles.push(title);
-    return title;
+    return { title, warning: res.headers.get('X-Issuarr-Warning') || undefined };
   },
-
-  health: () => request<HealthItem[]>('/health'),
-  rootFolders: () => request<{ id: number; path: string; freeSpace?: number; accessible: boolean }[]>('/rootfolder'),
-  addRootFolder: (path: string) => request('/rootfolder', { method: 'POST', body: JSON.stringify({ path }) }),
-  deleteRootFolder: (id: number) => request(`/rootfolder/${id}`, { method: 'DELETE' }),
-  browse: (path: string) => request<FileSystemListing>(`/filesystem?path=${encodeURIComponent(path)}`),
-  libraryScan: (path: string) => request<ImportCandidate[]>(`/libraryimport?path=${encodeURIComponent(path)}`),
-  libraryImport: (items: { path: string; name: string; year?: number; kind: Title['kind'] }[]) =>
-    request<ImportResult[]>('/libraryimport', { method: 'POST', body: JSON.stringify(items) }),
   /** Fetch a title and add (or refresh) it in the in-memory library. */
-  loadTitle: async (id: number) => {
+  loadTitle: async (id: number | string) => {
     const t = toTitle(await request<ApiTitle>(`/title/${id}`));
     const i = titles.findIndex((x) => x.id === t.id);
     if (i >= 0) titles[i] = t;
     else titles.push(t);
     return t;
   },
+  titleFiles: (id: string | number) => request<IssueFileInfo[]>(`/title/${id}/files`),
+  deleteIssueFile: (id: number) => request(`/issuefile/${id}`, { method: 'DELETE' }),
+  renamePreview: (id: string | number) => request<RenamePreview[]>(`/title/${id}/rename`),
+  missing: () => request<ApiIssue[]>('/wanted/missing'),
+  cutoffUnmet: () => request<ApiIssue[]>('/wanted/cutoff'),
+
+  // Searching / activity
+  command: (name: string, titleId?: number | string, issueIds?: number[]) =>
+    request<Command>('/command', json('POST', { name, titleId: titleId != null ? Number(titleId) : undefined, issueIds })),
+  getCommand: (id: number) => request<Command>(`/command/${id}`),
+  commands: () => request<Command[]>('/command'),
+  releases: (titleId: string | number, issueId?: number) =>
+    request<Release[]>(`/release?titleId=${titleId}${issueId != null ? `&issueId=${issueId}` : ''}`),
+  grab: (guid: string, titleId: string | number, issueId?: number) =>
+    request('/release', json('POST', { guid, titleId: Number(titleId), issueId })),
+  queue: () => request<{ totalRecords: number; records: QueueRecord[] }>('/queue'),
+  removeFromQueue: (id: string, removeFromClient: boolean, blocklist: boolean) =>
+    request(`/queue/${encodeURIComponent(id)}?removeFromClient=${removeFromClient}&blocklist=${blocklist}`, { method: 'DELETE' }),
+  history: (page = 1, pageSize = 50, titleId?: string | number) =>
+    request<{ totalRecords: number; records: HistoryRecord[] }>(`/history?page=${page}&pageSize=${pageSize}${titleId != null ? `&titleId=${titleId}` : ''}`),
+  clearHistory: () => request('/history', { method: 'DELETE' }),
+  blocklist: () => request<BlocklistRecord[]>('/blocklist'),
+  removeBlocklist: (id: number) => request(`/blocklist/${id}`, { method: 'DELETE' }),
+  clearBlocklist: () => request('/blocklist', { method: 'DELETE' }),
+
+  // Settings
+  providers: (kind: ProviderKind) => request<Provider[]>(`/${kind}`),
+  providerSchema: (kind: ProviderKind) => request<ProviderSchema[]>(`/${kind}/schema`),
+  saveProvider: (kind: ProviderKind, p: Partial<Provider>) =>
+    p.id ? request<Provider>(`/${kind}/${p.id}`, json('PUT', p)) : request<Provider>(`/${kind}`, json('POST', p)),
+  deleteProvider: (kind: ProviderKind, id: number) => request(`/${kind}/${id}`, { method: 'DELETE' }),
+  testProvider: (kind: ProviderKind, p: Partial<Provider>) => request<{ message: string }>(`/${kind}/test`, json('POST', p)),
+  config: () => request<Record<string, string>>('/config'),
+  saveConfig: (values: Record<string, string>) => request<Record<string, string>>('/config', json('PUT', values)),
+  hostConfig: () => request<HostConfig>('/config/host'),
+  saveHostConfig: (c: HostConfig) => request<{ config: HostConfig; restartNeeded: boolean }>('/config/host', json('PUT', c)),
+  regenerateApiKey: () => request<{ apiKey: string }>('/config/host/apikey', { method: 'POST' }),
+  qualityProfiles: () => request<QualityProfile[]>('/qualityprofile'),
+  rootFolders: () => request<RootFolder[]>('/rootfolder'),
+  addRootFolder: (path: string) => request('/rootfolder', json('POST', { path })),
+  deleteRootFolder: (id: number) => request(`/rootfolder/${id}`, { method: 'DELETE' }),
+  browse: (path: string) => request<FileSystemListing>(`/filesystem?path=${encodeURIComponent(path)}`),
+  libraryScan: (path: string) => request<ImportCandidate[]>(`/libraryimport?path=${encodeURIComponent(path)}`),
+  libraryImport: (items: { path: string; name: string; year?: number; kind: Title['kind'] }[]) =>
+    request<ImportResult[]>('/libraryimport', json('POST', items)),
+
+  // System
+  health: () => request<HealthItem[]>('/health'),
   status: () => request<Record<string, string | boolean>>('/system/status'),
+  tasks: () => request<ScheduledTask[]>('/system/task'),
 };
+
+/** URL of the iCal feed (includes the API key so calendar apps can fetch it). */
+export function calendarFeedUrl() {
+  if (!init) return '';
+  return `${window.location.origin}${init.urlBase}/feed/v1/calendar/issuarr.ics?apikey=${init.apiKey}`;
+}

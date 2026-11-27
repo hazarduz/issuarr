@@ -20,19 +20,27 @@ Magazines and comics have always been an afterthought in the *arr world. Issuarr
 - 📖 Plays nicely with Komga, Kavita and OPDS readers
 - 🐳 Docker-first, runs happily on a NAS
 
-## Status
+## What it does
 
-Early days. What works today:
+- **Add titles:** search ComicVine or Metron for comic series (with covers and full issue lists), or add a magazine by how often it comes out and let Issuarr work out the issues
+- **Library import:** scan an existing collection; each folder becomes a title, each file an issue
+- **Indexers:** Newznab, Torznab, or Prowlarr (search all its indexers at once)
+- **Download clients:** qBittorrent, Deluge, Transmission, SABnzbd, NZBGet, with remote path mappings for Docker setups
+- **Automatic downloads:** RSS sync every 15 minutes, plus search on add, per title, per issue or for everything missing
+- **Interactive search:** see every release with the reason it would or wouldn't be grabbed, and download any of them
+- **Quality profiles:** prefer CBZ or PDF, upgrade until the cutoff, blocklist failed releases and search again
+- **Import:** finished downloads are renamed with your naming format and moved, or hardlinked for torrents; ComicInfo.xml is written into CBZ files
+- **Connections:** rescan Komga or Kavita on import; Discord and webhook notifications
+- **Calendar:** month view and an iCal feed for your calendar app
+- **Login:** Forms or Basic, optionally skipped on your home network; API key for other apps
 
-- ✅ Web UI (library, title pages, calendar, activity, wanted, settings, system)
-- ✅ Backend with SQLite database, REST API (`/api/v1`) and API-key auth
-- ✅ `config.xml` + app-data folder, same as Sonarr/Radarr
-- ✅ Release-name parser for comics and magazines (`#46`, `037`, `November 2026`, `2026-W48`, `Q3 2026`…)
-- ✅ Root folders (with folder browser), monitoring, health checks
-- ✅ Library import: scan an existing collection and add it, one title per folder
-- ✅ Docker image
+### First-time setup
 
-Not yet: metadata lookup (ComicVine/Metron), indexers/Prowlarr, download clients, importing downloads. See [ROADMAP.md](ROADMAP.md).
+1. **Settings → Media Management:** add a root folder (where your comics/magazines live).
+2. **Settings → Indexers:** add Prowlarr, or individual Newznab/Torznab indexers.
+3. **Settings → Download Clients:** add your client. Use a category/label like `issuarr`.
+4. **Settings → General:** add a free [ComicVine API key](https://comicvine.gamespot.com/api/) (or Metron login) to search for comics, and turn on login.
+5. **Add New** or **Library Import**.
 
 ## Quick start (Docker)
 
@@ -130,7 +138,16 @@ All endpoints need the API key (from `config.xml`, or **Settings → General**) 
 | GET / POST | `/api/v1/libraryimport?path=` | Scan a folder for titles / import them |
 | GET | `/api/v1/filesystem?path=` | Browse server folders (used by the folder picker) |
 | GET | `/api/v1/parse?title=` | Show how a release name is parsed |
-| GET | `/api/v1/health` · `/api/v1/system/status` | Health checks, system info |
+| GET / POST / PUT / DELETE | `/api/v1/indexer` · `/downloadclient` · `/notification` | Providers (+ `/schema`, `/test`) |
+| GET | `/api/v1/title/lookup?term=` | Search ComicVine / Metron |
+| GET / POST | `/api/v1/release?titleId=&issueId=` | Interactive search / grab a release |
+| POST / GET | `/api/v1/command` | Run jobs: `RefreshTitle`, `RefreshAll`, `TitleSearch`, `IssueSearch`, `MissingSearch`, `RssSync`, `ProcessDownloads`, `RenameTitle` |
+| GET / DELETE | `/api/v1/queue` | Download queue / remove (`?removeFromClient=&blocklist=`) |
+| GET | `/api/v1/history` · `/api/v1/blocklist` | History, blocklist |
+| GET / PUT | `/api/v1/config` · `/api/v1/config/host` | Settings |
+| GET | `/api/v1/wanted/cutoff` | Issues that could be upgraded |
+| GET | `/feed/v1/calendar/issuarr.ics` | iCal feed |
+| GET | `/api/v1/health` · `/api/v1/system/status` · `/api/v1/system/task` | Health checks, system info, scheduled tasks |
 
 ## Tech
 

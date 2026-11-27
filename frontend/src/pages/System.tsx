@@ -1,7 +1,10 @@
-import { BookOpen, CheckCircle2, CircleAlert, Database, HardDrive, Info, RefreshCw, TriangleAlert } from 'lucide-react';
+import { BookOpen, CheckCircle2, CircleAlert, Database, HardDrive, Info, Loader2, Play, RefreshCw, TriangleAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useToast } from '../components/Toast';
+import { runCommand } from '../data/store';
 import { useEffect, useState } from 'react';
 import { Grow, Tool, Toolbar } from '../components/Toolbar';
-import { api, isConnected, serverInfo, type HealthItem } from '../data/api';
+import { api, isConnected, serverInfo, timeAgo, type Command, type HealthItem, type ScheduledTask } from '../data/api';
 import { stats, titles } from '../data/mock';
 
 const demoHealth: HealthItem[] = [
@@ -23,6 +26,34 @@ export default function System() {
   const [health, setHealth] = useState<HealthItem[]>(isConnected() ? [] : demoHealth);
   const [status, setStatus] = useState<Record<string, string | boolean> | null>(null);
   const [checking, setChecking] = useState(false);
+  const [tasks, setTasks] = useState<ScheduledTask[]>([]);
+  const [commands, setCommands] = useState<Command[]>([]);
+  const [running, setRunning] = useState<string | null>(null);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (!isConnected()) return;
+    const poll = () => {
+      api.tasks().then(setTasks).catch(() => {});
+      api.commands().then(setCommands).catch(() => {});
+    };
+    poll();
+    const t = setInterval(poll, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  const runTask = async (name: string) => {
+    setRunning(name);
+    try {
+      const cmd = await runCommand(name);
+      toast(cmd.message ?? 'Done');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Failed', 'error');
+    } finally {
+      setRunning(null);
+      api.tasks().then(setTasks);
+    }
+  };
 
   const load = async () => {
     if (!isConnected()) return;
@@ -86,14 +117,85 @@ export default function System() {
             health.map((h) => (
               <div className="health" key={h.source + h.message}>
                 {icon[h.type]}
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{h.message}</div>
                   <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>{h.source}</div>
                 </div>
+                {h.link && (
+                  <Link className="btn sm" to={h.link}>
+                    Fix
+                  </Link>
+                )}
               </div>
             ))
           )}
         </div>
+
+        {isConnected() && (
+          <div className="card table-wrap" style={{ marginBottom: 22 }}>
+            <div className="card-head">Scheduled Tasks</div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Every</th>
+                  <th>Last run</th>
+                  <th>Next run</th>
+                  <th style={{ width: 60 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.map((t) => (
+                  <tr key={t.name}>
+                    <td style={{ fontWeight: 600 }}>{t.label}</td>
+                    <td className="muted">{t.interval >= 60 ? `${t.interval / 60} hours` : `${t.interval} min`}</td>
+                    <td className="muted">{timeAgo(t.lastRun)}</td>
+                    <td className="muted">{timeAgo(t.nextRun)}</td>
+                    <td>
+                      <button className="icon-btn" style={{ width: 30, height: 30 }} title="Run now" onClick={() => runTask(t.name)} disabled={running !== null}>
+                        {running === t.name ? <Loader2 size={15} className="spin-icon" /> : <Play size={15} />}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {commands.length > 0 && (
+          <div className="card table-wrap" style={{ marginBottom: 22 }}>
+            <div className="card-head">Recent Jobs</div>
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Job</th>
+                  <th>Status</th>
+                  <th>Result</th>
+                  <th>Started</th>
+                  <th>Took</th>
+                </tr>
+              </thead>
+              <tbody>
+                {commands.slice(0, 15).map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      {c.name.replace(/([a-z])([A-Z])/g, '$1 $2')} {!c.manual && <span className="pill">scheduled</span>}
+                    </td>
+                    <td>
+                      <span className={`pill ${c.status === 'completed' ? 'ok' : c.status === 'failed' ? 'danger' : 'info'}`}>{c.status}</span>
+                    </td>
+                    <td className="muted" style={{ whiteSpace: 'normal' }}>
+                      {c.message ?? ''}
+                    </td>
+                    <td className="muted">{timeAgo(c.started ?? c.queued)}</td>
+                    <td className="muted num">{c.started && c.ended ? `${((new Date(c.ended).getTime() - new Date(c.started).getTime()) / 1000).toFixed(1)}s` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {status && (
           <div className="card">

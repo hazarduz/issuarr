@@ -7,18 +7,29 @@ import {
   RefreshCw,
   Rows3,
   Search as SearchIcon,
-  SlidersHorizontal,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Cover } from '../components/Cover';
 import { MonitorToggle, ProgressBar } from '../components/Status';
 import { Grow, Sep, Tool, Toolbar } from '../components/Toolbar';
 import { useToast } from '../components/Toast';
-import { kindLabel, parseDate, stats, titles, type Kind } from '../data/mock';
+import { api, isConnected } from '../data/api';
+import { kindLabel, parseDate, stats, titles, type Kind, type Title } from '../data/mock';
+import { notifyLibrary, runCommand, useLibraryVersion } from '../data/store';
 
 type View = 'posters' | 'overview' | 'table';
 type Sort = 'name' | 'missing' | 'next' | 'added';
+type FilterId = 'all' | 'monitored' | 'unmonitored' | 'missing' | 'continuing' | 'ended';
+
+const filters: { id: FilterId; label: string; test: (t: Title) => boolean }[] = [
+  { id: 'all', label: 'All', test: () => true },
+  { id: 'monitored', label: 'Monitored only', test: (t) => t.monitored },
+  { id: 'unmonitored', label: 'Unmonitored', test: (t) => !t.monitored },
+  { id: 'missing', label: 'Missing issues', test: (t) => stats(t).missing > 0 },
+  { id: 'continuing', label: 'Continuing', test: (t) => t.status === 'continuing' },
+  { id: 'ended', label: 'Ended', test: (t) => t.status === 'ended' },
+];
 
 function readView(): View {
   try {
@@ -34,7 +45,18 @@ function fmtDate(d?: string) {
 }
 
 export default function Library() {
+  useLibraryVersion();
   const [view, setViewState] = useState<View>(readView);
+  const [filter, setFilter] = useState<FilterId>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => filterRef.current && !filterRef.current.contains(e.target as Node) && setFilterOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
   const [kind, setKind] = useState<'all' | Kind>('all');
   const [sort, setSort] = useState<Sort>('name');
   const [refreshing, setRefreshing] = useState(false);
@@ -52,7 +74,8 @@ export default function Library() {
   };
 
   const list = useMemo(() => {
-    const l = titles.filter((t) => kind === 'all' || t.kind === kind);
+    const test = filters.find((f) => f.id === filter)!.test;
+    const l = titles.filter((t) => (kind === 'all' || t.kind === kind) && test(t));
     const s = [...l];
     if (sort === 'name') s.sort((a, b) => a.name.localeCompare(b.name));
     if (sort === 'missing') s.sort((a, b) => stats(b).missing - stats(a).missing);
@@ -60,17 +83,50 @@ export default function Library() {
       s.sort((a, b) => (stats(a).next?.releaseDate ?? '9999').localeCompare(stats(b).next?.releaseDate ?? '9999'));
     if (sort === 'added') s.sort((a, b) => b.year - a.year);
     return s;
-  }, [kind, sort]);
+    // eslint-disable-next-line
+  }, [kind, sort, filter, titles.length, titles.map((t) => `${t.monitored}${t.issues.length}`).join()]);
 
   const sorts: Sort[] = ['name', 'missing', 'next', 'added'];
   const sortLabel: Record<Sort, string> = { name: 'Title', missing: 'Missing', next: 'Next Issue', added: 'Year' };
 
-  const refresh = () => {
+  const refresh = async () => {
+    if (!isConnected()) return toast('Not available with sample data. Run the Issuarr backend to use this.', 'error');
     setRefreshing(true);
-    setTimeout(() => {
+    toast('Refreshing every title…');
+    try {
+      const cmd = await runCommand('RefreshAll');
+      toast(cmd.message ?? 'Library refreshed');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Refresh failed', 'error');
+    } finally {
       setRefreshing(false);
-      toast('Library refreshed — 3 new issues found');
-    }, 1400);
+    }
+  };
+
+  const searchMissing = async () => {
+    if (!isConnected()) return toast('Not available with sample data. Run the Issuarr backend to use this.', 'error');
+    setSearching(true);
+    toast(`Searching for ${totals.missing} missing issues…`);
+    try {
+      const cmd = await runCommand('MissingSearch');
+      toast(cmd.message ?? 'Search finished');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Search failed', 'error');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const toggleMonitored = (t: Title) => {
+    t.monitored = !t.monitored;
+    notifyLibrary();
+    if (isConnected()) {
+      api.updateTitle(t, { monitored: t.monitored }).then(() => api.loadTitle(t.id)).then(notifyLibrary).catch(() => {
+        t.monitored = !t.monitored;
+        notifyLibrary();
+        toast('Could not save', 'error');
+      });
+    }
   };
 
   const totals = titles.reduce(
@@ -87,10 +143,8 @@ export default function Library() {
     <>
       <Toolbar>
         <Tool icon={RefreshCw} label="Update All" onClick={refresh} spin={refreshing} />
-        <Tool icon={SearchIcon} label="Search Missing" onClick={() => toast(`Searching for ${totals.missing} missing issues`)} />
+        <Tool icon={SearchIcon} label="Search Missing" spin={searching} onClick={searchMissing} />
         <Tool icon={Plus} label="Add New" onClick={() => navigate('/add')} />
-        <Sep />
-        <Tool icon={SlidersHorizontal} label="Options" />
         <Grow />
         <div className="segmented" style={{ marginRight: 8 }}>
           {(['all', 'comic', 'magazine'] as const).map((k) => (
@@ -109,7 +163,25 @@ export default function Library() {
           label={`Sort: ${sortLabel[sort]}`}
           onClick={() => setSort(sorts[(sorts.indexOf(sort) + 1) % sorts.length])}
         />
-        <Tool icon={Filter} label="Filter" />
+        <div className="rel-wrap" ref={filterRef}>
+          <Tool icon={Filter} label={filter === 'all' ? 'Filter' : filters.find((f) => f.id === filter)!.label} on={filter !== 'all'} onClick={() => setFilterOpen((o) => !o)} />
+          {filterOpen && (
+            <div className="menu">
+              {filters.map((f) => (
+                <button
+                  key={f.id}
+                  className={filter === f.id ? 'on' : ''}
+                  onClick={() => {
+                    setFilter(f.id);
+                    setFilterOpen(false);
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </Toolbar>
 
       <div className="page">
@@ -130,6 +202,27 @@ export default function Library() {
             />
           )}
         </h1>
+
+        {list.length === 0 && (
+          <div className="card empty">
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: 16 }}>{titles.length === 0 ? 'Your library is empty' : 'Nothing matches this filter'}</div>
+              {titles.length === 0 && (
+                <>
+                  <p>Add a comic series or magazine to start tracking issues, or import a collection you already have.</p>
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                    <button className="btn primary" onClick={() => navigate('/add')}>
+                      <Plus size={16} /> Add New
+                    </button>
+                    <button className="btn" onClick={() => navigate('/import')}>
+                      Library Import
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {view === 'posters' && (
           <div className="poster-grid" style={{ ['--poster-w' as string]: `${posterSize}px` }}>
@@ -211,7 +304,7 @@ export default function Library() {
                   return (
                     <tr key={t.id}>
                       <td>
-                        <MonitorToggle on={t.monitored} />
+                        <MonitorToggle on={t.monitored} onClick={() => toggleMonitored(t)} />
                       </td>
                       <td>
                         <Link className="link" to={`/title/${t.slug}`}>

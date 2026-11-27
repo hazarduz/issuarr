@@ -1,12 +1,22 @@
+import { useState } from 'react';
 import type { Title } from '../data/mock';
 
 /**
- * Generated placeholder cover. Real covers will come from metadata
- * providers; until then every title gets a distinctive, printed-looking
- * card built from its palette.
+ * Shows the real cover when the metadata source has one, otherwise a
+ * generated, printed-looking placeholder built from the title's palette.
  */
 export function Cover({ title, issue, size = 'md' }: { title: Title; issue?: string; size?: 'sm' | 'md' | 'lg' }) {
+  const [failed, setFailed] = useState(false);
   const [a, b] = title.palette;
+
+  if (title.coverUrl && !failed) {
+    return (
+      <div className={`cover has-image ${title.kind}`} style={{ background: `linear-gradient(155deg, ${a} 0%, ${b} 100%)` }}>
+        <img src={title.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+      </div>
+    );
+  }
+
   const fontSize = size === 'lg' ? 30 : size === 'sm' ? 12 : title.name.length > 14 ? 19 : 23;
   return (
     <div className={`cover ${title.kind}`} style={{ background: `linear-gradient(155deg, ${a} 0%, ${b} 100%)` }}>

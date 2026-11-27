@@ -9,13 +9,16 @@ export interface Issue {
   status: IssueStatus;
   monitored: boolean;
   serverId?: number;
-  file?: { name: string; size: string; format: string };
+  coverUrl?: string;
+  file?: { id?: number; name: string; size: string; format: string };
 }
 
 export interface Title {
   id: string;
   /** Server statistics; when absent they're computed from issues (demo data). */
   serverStats?: { have: number; total: number; missing: number; sizeBytes: number; next?: string };
+  coverUrl?: string;
+  metadataSource?: string;
   slug: string;
   name: string;
   kind: Kind;

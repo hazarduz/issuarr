@@ -10,15 +10,19 @@ import {
   Sun,
   TriangleAlert,
   Bell,
+  CheckCircle2,
+  CircleAlert,
+  Info,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { queue, titles, kindLabel, stats } from '../data/mock';
 import { Cover } from './Cover';
-import { isConnected, serverInfo } from '../data/api';
+import { api, isConnected, serverInfo, type HealthItem } from '../data/api';
+import { useLibraryVersion } from '../data/store';
 
 
-const buildNav = (missingCount: number) => [
+const buildNav = (missingCount: number, queueCount: number) => [
   {
     to: '/',
     label: 'Library',
@@ -34,7 +38,7 @@ const buildNav = (missingCount: number) => [
     to: '/activity',
     label: 'Activity',
     icon: Activity,
-    count: queue.length,
+    count: queueCount,
     sub: [
       { to: '/activity', label: 'Queue' },
       { to: '/activity/history', label: 'History' },
@@ -177,7 +181,32 @@ export function Layout() {
   const [theme, toggleTheme] = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const nav = buildNav(titles.reduce((n, t) => n + (t.monitored ? stats(t).missing : 0), 0));
+  useLibraryVersion();
+  const [queueCount, setQueueCount] = useState(isConnected() ? 0 : queue.length);
+  const [health, setHealth] = useState<HealthItem[]>([]);
+  const [healthOpen, setHealthOpen] = useState(false);
+  const healthRef = useRef<HTMLDivElement>(null);
+
+  // Poll the queue size and health every 30s for the sidebar badge and the bell.
+  useEffect(() => {
+    if (!isConnected()) return;
+    const poll = () => {
+      api.queue().then((q) => setQueueCount(q.records.length)).catch(() => {});
+      api.health().then(setHealth).catch(() => {});
+    };
+    poll();
+    const t = setInterval(poll, 30000);
+    return () => clearInterval(t);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => healthRef.current && !healthRef.current.contains(e.target as Node) && setHealthOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const nav = buildNav(titles.reduce((n, t) => n + (t.monitored ? stats(t).missing : 0), 0), queueCount);
+  const worst = health.some((h) => h.type === 'error') ? 'var(--danger)' : health.some((h) => h.type === 'warning') ? 'var(--warn)' : health.length ? 'var(--info)' : null;
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
@@ -201,10 +230,29 @@ export function Layout() {
             Demo data
           </span>
         )}
-        <button className="icon-btn" aria-label="Health">
-          <Bell size={19} />
-          <span className="dot" />
-        </button>
+        <div className="rel-wrap" ref={healthRef}>
+          <button className="icon-btn" aria-label="Health" onClick={() => setHealthOpen((o) => !o)}>
+            <Bell size={19} />
+            {worst && <span className="dot" style={{ background: worst }} />}
+          </button>
+          {healthOpen && (
+            <div className="menu health-pop">
+              <div style={{ fontWeight: 600, padding: '6px 10px' }}>Health</div>
+              {!isConnected() && <div className="muted" style={{ padding: 10 }}>Showing sample data. Run the Issuarr backend for live status.</div>}
+              {isConnected() && health.length === 0 && (
+                <div className="health">
+                  <CheckCircle2 size={18} color="var(--ok)" /> Everything looks good
+                </div>
+              )}
+              {health.map((h) => (
+                <Link key={h.source + h.message} to={h.link ?? '/system'} className="health" onClick={() => setHealthOpen(false)} style={{ display: 'flex' }}>
+                  {h.type === 'error' ? <CircleAlert size={18} color="var(--danger)" /> : h.type === 'warning' ? <TriangleAlert size={18} color="var(--warn)" /> : <Info size={18} color="var(--info)" />}
+                  <span style={{ fontSize: 13 }}>{h.message}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
         <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
         </button>
